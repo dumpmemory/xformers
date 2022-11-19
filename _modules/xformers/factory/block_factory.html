@@ -12,7 +12,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>xformers.factory.block_factory | xFormers 0.0.1 documentation</title>
+  <title>xformers.factory.block_factory | xFormers 0.0.15.dev documentation</title>
   
   <script src="../../../_static/js/ga.js"></script>
   <script src="../../../_static/js/redirect.js"></script>
@@ -20,9 +20,9 @@
   <link rel="shortcut icon" href="../../../_static/images/favicon.png" />
   
   
-  <link rel="canonical" href="https://fairinternal.github.io/xformers_modules/xformers/factory/block_factory.html" />
+  <link rel="canonical" href="https://facebookresearch.github.io/xformers_modules/xformers/factory/block_factory.html" />
   
-  <meta property="og:title" content="xformers.factory.block_factory | xFormers 0.0.1 documentation">
+  <meta property="og:title" content="xformers.factory.block_factory | xFormers 0.0.15.dev documentation">
   <meta name="description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <meta property="og:description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <!--<meta property="og:image" content="https://mmf.sh/img/logo.png">-->
@@ -70,8 +70,8 @@
 <div class="container-fluid header-holder tutorials-header" id="header-holder">
   <div class="container">
     <div class="header-container">
-      <a class="header-logo" href="https://github.com/facebookresearch/xformers"><img src="_static/logo.png"
-          style="padding-right: 90px;" width="280px" height="53px"></a>
+      <a class="header-logo" href="https://github.com/facebookresearch/xformers"><img
+          src="../../../_static/logo.png" style="padding-right: 90px;" width="280px" height="53px"></a>
 
       <div class="main-menu">
         <ul>
@@ -133,29 +133,25 @@
         
         
         
-        <p><span class="caption-text">Index</span></p>
+        <p class="caption" role="heading"><span class="caption-text">Index</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../what_is_xformers.html">What is xFormers?</a></li>
 </ul>
-<p><span class="caption-text">Components Documentation</span></p>
+<p class="caption" role="heading"><span class="caption-text">Components Documentation</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../components/index.html">API Reference</a></li>
 </ul>
-<p><span class="caption-text">Factory</span></p>
+<p class="caption" role="heading"><span class="caption-text">Build models and blocks programatically</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../factory/index.html">Factory</a></li>
 </ul>
-<p><span class="caption-text">Tutorials</span></p>
+<p class="caption" role="heading"><span class="caption-text">Tutorials and examples</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/index.html">Tutorials</a></li>
 </ul>
-<p><span class="caption-text">Custom parts</span></p>
+<p class="caption" role="heading"><span class="caption-text">Some custom parts</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../custom_parts/index.html">Custom parts reference</a></li>
-</ul>
-<p><span class="caption-text">Tools</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../tools/index.html">Tools</a></li>
 </ul>
 
         
@@ -233,225 +229,184 @@
 <span class="c1"># LICENSE file in the root directory of this source tree.</span>
 
 
-<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">asdict</span><span class="p">,</span> <span class="n">dataclass</span>
-<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">asdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
 
 <span class="kn">from</span> <span class="nn">xformers.components</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">LayerNormStyle</span><span class="p">,</span>
+    <span class="n">PatchEmbeddingConfig</span><span class="p">,</span>
     <span class="n">PostNorm</span><span class="p">,</span>
     <span class="n">PreNorm</span><span class="p">,</span>
     <span class="n">Residual</span><span class="p">,</span>
+    <span class="n">ResidualNormStyle</span><span class="p">,</span>
     <span class="n">build_multi_head_attention</span><span class="p">,</span>
+    <span class="n">build_patch_embedding</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">xformers.components.feedforward</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">FEEDFORWARD_REGISTRY</span><span class="p">,</span>
-    <span class="n">FeedforwardConfig</span><span class="p">,</span>
-    <span class="n">build_feedforward</span><span class="p">,</span>
+<span class="kn">from</span> <span class="nn">xformers.components.attention</span> <span class="kn">import</span> <span class="n">AttentionMask</span>
+<span class="kn">from</span> <span class="nn">xformers.components.feedforward</span> <span class="kn">import</span> <span class="n">build_feedforward</span>
+<span class="kn">from</span> <span class="nn">xformers.components.positional_embedding</span> <span class="kn">import</span> <span class="n">build_positional_embedding</span>
+<span class="kn">from</span> <span class="nn">xformers.components.residual</span> <span class="kn">import</span> <span class="n">get_deepnorm_coefficients</span>
+<span class="kn">from</span> <span class="nn">xformers.components.simplicial_embedding</span> <span class="kn">import</span> <span class="n">SimplicialEmbedding</span>
+<span class="kn">from</span> <span class="nn">xformers.factory.block_configs</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">NormalizationType</span><span class="p">,</span>
+    <span class="n">xFormerDecoderConfig</span><span class="p">,</span>
+    <span class="n">xFormerEncoderConfig</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">xformers.components.positional_embedding</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">POSITION_EMBEDDING_REGISTRY</span><span class="p">,</span>
-    <span class="n">PositionEmbeddingConfig</span><span class="p">,</span>
-    <span class="n">build_positional_embedding</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">xformers.utils</span> <span class="kn">import</span> <span class="n">generate_matching_config</span>
 
-
-<div class="viewcode-block" id="LayerPositionBitmask"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.LayerPositionBitmask">[docs]</a><span class="k">class</span> <span class="nc">LayerPositionBitmask</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
-    <span class="n">First</span> <span class="o">=</span> <span class="mb">0b01</span>
-    <span class="n">Last</span> <span class="o">=</span> <span class="mb">0b10</span>
-    <span class="n">Default</span> <span class="o">=</span> <span class="mb">0b11</span></div>
-
-
-<div class="viewcode-block" id="LayerPosition"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.LayerPosition">[docs]</a><span class="k">class</span> <span class="nc">LayerPosition</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot; Bitmask to mark this layer as first, last, nothing or both&quot;&quot;&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bitmask</span> <span class="o">=</span> <span class="n">LayerPositionBitmask</span><span class="o">.</span><span class="n">Default</span>
-
-<div class="viewcode-block" id="LayerPosition.is_first"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.LayerPosition.is_first">[docs]</a>    <span class="k">def</span> <span class="nf">is_first</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bitmask</span> <span class="o">&amp;</span> <span class="n">LayerPositionBitmask</span><span class="o">.</span><span class="n">First</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="LayerPosition.is_last"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.LayerPosition.is_last">[docs]</a>    <span class="k">def</span> <span class="nf">is_last</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bitmask</span> <span class="o">&amp;</span> <span class="n">LayerPositionBitmask</span><span class="o">.</span><span class="n">Last</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="LayerPosition.mark_not_first"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.LayerPosition.mark_not_first">[docs]</a>    <span class="k">def</span> <span class="nf">mark_not_first</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bitmask</span> <span class="o">&amp;=</span> <span class="o">~</span><span class="n">LayerPositionBitmask</span><span class="o">.</span><span class="n">First</span></div>
-
-<div class="viewcode-block" id="LayerPosition.mark_not_last"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.LayerPosition.mark_not_last">[docs]</a>    <span class="k">def</span> <span class="nf">mark_not_last</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bitmask</span> <span class="o">&amp;=</span> <span class="o">~</span><span class="n">LayerPositionBitmask</span><span class="o">.</span><span class="n">Last</span></div></div>
-
-
-<div class="viewcode-block" id="BlockType"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.BlockType">[docs]</a><span class="k">class</span> <span class="nc">BlockType</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
-    <span class="n">Encoder</span> <span class="o">=</span> <span class="s2">&quot;encoder&quot;</span>
-    <span class="n">Decoder</span> <span class="o">=</span> <span class="s2">&quot;decoder&quot;</span></div>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;xformers&quot;</span><span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">_get_ln_factory</span><span class="p">(</span>
     <span class="n">d_model</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">layer_norm_style</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LayerNormStyle</span><span class="p">],</span>
-    <span class="n">residual</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="n">use_triton</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">residual_norm_style</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ResidualNormStyle</span><span class="p">],</span>
+    <span class="n">use_triton</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">residual</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">normalization</span><span class="p">:</span> <span class="n">NormalizationType</span> <span class="o">=</span> <span class="n">NormalizationType</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">,</span>
+    <span class="n">residual_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
 <span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Handle all the supported residual path configurations.</span>
+
+<span class="sd">    ..Note: we return the appropriate constructor, not an actual layer</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="nf">get_layer_wrapper</span><span class="p">(</span>
         <span class="n">d_model</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">sublayer</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
-        <span class="n">layer_norm_style</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LayerNormStyle</span><span class="p">],</span>
-        <span class="n">residual</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">residual_norm_style</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ResidualNormStyle</span><span class="p">],</span>
+        <span class="n">residual</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="n">residual_scale</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="k">if</span> <span class="n">residual</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">(</span>
-                <span class="n">Residual</span><span class="p">(</span><span class="n">PreNorm</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">sublayer</span><span class="p">,</span> <span class="n">use_triton</span><span class="p">))</span>
-                <span class="k">if</span> <span class="n">layer_norm_style</span> <span class="o">==</span> <span class="n">LayerNormStyle</span><span class="o">.</span><span class="n">Pre</span>
-                <span class="k">else</span> <span class="n">PostNorm</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">Residual</span><span class="p">(</span><span class="n">sublayer</span><span class="p">),</span> <span class="n">use_triton</span><span class="p">)</span>
-            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">residual_norm_style</span> <span class="o">==</span> <span class="n">ResidualNormStyle</span><span class="o">.</span><span class="n">Pre</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">Residual</span><span class="p">(</span>
+                    <span class="n">layer</span><span class="o">=</span><span class="n">PreNorm</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">sublayer</span><span class="p">,</span> <span class="n">normalization</span><span class="p">,</span> <span class="n">use_triton</span><span class="p">),</span>
+                    <span class="n">scale</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">residual_norm_style</span> <span class="o">==</span> <span class="n">ResidualNormStyle</span><span class="o">.</span><span class="n">Post</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">PostNorm</span><span class="p">(</span>
+                    <span class="n">d_model</span><span class="p">,</span>
+                    <span class="n">Residual</span><span class="p">(</span><span class="n">layer</span><span class="o">=</span><span class="n">sublayer</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">normalization</span><span class="p">,</span>
+                    <span class="n">use_triton</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">residual_norm_style</span> <span class="o">==</span> <span class="n">ResidualNormStyle</span><span class="o">.</span><span class="n">DeepNorm</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">PostNorm</span><span class="p">(</span>
+                    <span class="n">d_model</span><span class="p">,</span>
+                    <span class="n">Residual</span><span class="p">(</span><span class="n">layer</span><span class="o">=</span><span class="n">sublayer</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">residual_scale</span><span class="p">),</span>
+                    <span class="n">normalization</span><span class="p">,</span>
+                    <span class="n">use_triton</span><span class="o">=</span><span class="n">use_triton</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span>
+
         <span class="k">return</span> <span class="p">(</span>
-            <span class="n">PreNorm</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">sublayer</span><span class="p">,</span> <span class="n">use_triton</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">layer_norm_style</span> <span class="o">==</span> <span class="n">LayerNormStyle</span><span class="o">.</span><span class="n">Pre</span>
-            <span class="k">else</span> <span class="n">PostNorm</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">sublayer</span><span class="p">,</span> <span class="n">use_triton</span><span class="p">)</span>
+            <span class="n">PreNorm</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">sublayer</span><span class="p">,</span> <span class="n">normalization</span><span class="p">,</span> <span class="n">use_triton</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">residual_norm_style</span> <span class="o">==</span> <span class="n">ResidualNormStyle</span><span class="o">.</span><span class="n">Pre</span>
+            <span class="k">else</span> <span class="n">PostNorm</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">sublayer</span><span class="p">,</span> <span class="n">normalization</span><span class="p">,</span> <span class="n">use_triton</span><span class="p">)</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">ln_factory</span><span class="p">(</span><span class="n">sublayer</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">get_layer_wrapper</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">sublayer</span><span class="p">,</span> <span class="n">layer_norm_style</span><span class="p">,</span> <span class="n">residual</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">get_layer_wrapper</span><span class="p">(</span>
+            <span class="n">d_model</span><span class="p">,</span> <span class="n">sublayer</span><span class="p">,</span> <span class="n">residual_norm_style</span><span class="p">,</span> <span class="n">residual</span><span class="p">,</span> <span class="n">residual_scale</span>
+        <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">ln_factory</span>
 
 
-<div class="viewcode-block" id="xFormerBlockConfig"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.xFormerBlockConfig">[docs]</a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># handle constructors explicitly to force type changes</span>
-<span class="k">class</span> <span class="nc">xFormerBlockConfig</span><span class="p">:</span>
-    <span class="n">dim_model</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">feedforward_config</span><span class="p">:</span> <span class="n">FeedforwardConfig</span>
-    <span class="n">position_encoding_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PositionEmbeddingConfig</span><span class="p">]</span>
-    <span class="n">block_type</span><span class="p">:</span> <span class="n">BlockType</span>
-    <span class="n">layer_norm_style</span><span class="p">:</span> <span class="n">LayerNormStyle</span>
-    <span class="n">layer_position</span><span class="p">:</span> <span class="n">LayerPosition</span>
-    <span class="n">use_triton</span><span class="p">:</span> <span class="nb">bool</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">dim_model</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">feedforward_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">position_encoding_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
-        <span class="n">block_type</span><span class="p">:</span> <span class="n">BlockType</span><span class="p">,</span>
-        <span class="n">layer_norm_style</span><span class="p">:</span> <span class="n">LayerNormStyle</span> <span class="o">=</span> <span class="n">LayerNormStyle</span><span class="p">(</span><span class="s2">&quot;post&quot;</span><span class="p">),</span>
-    <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dim_model</span> <span class="o">=</span> <span class="n">dim_model</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">block_type</span> <span class="o">=</span> <span class="n">block_type</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">layer_norm_style</span> <span class="o">=</span> <span class="n">layer_norm_style</span>
-
-        <span class="c1"># Fill in possible gaps in the config for subparts of the block</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">feedforward_config</span> <span class="o">=</span> <span class="n">generate_matching_config</span><span class="p">(</span>
-            <span class="n">feedforward_config</span><span class="p">,</span>
-            <span class="n">FEEDFORWARD_REGISTRY</span><span class="p">[</span><span class="n">feedforward_config</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
-        <span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">position_encoding_config</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">generate_matching_config</span><span class="p">(</span>
-                <span class="n">position_encoding_config</span><span class="p">,</span>
-                <span class="n">POSITION_EMBEDDING_REGISTRY</span><span class="p">[</span><span class="n">position_encoding_config</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="n">position_encoding_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Default is that this layer is the only one, so both first and last</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">layer_position</span> <span class="o">=</span> <span class="n">LayerPosition</span><span class="p">()</span></div>
-
-
-<div class="viewcode-block" id="xFormerEncoderConfig"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.xFormerEncoderConfig">[docs]</a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">xFormerEncoderConfig</span><span class="p">(</span><span class="n">xFormerBlockConfig</span><span class="p">):</span>
-    <span class="n">multi_head_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
-    <span class="n">use_triton</span><span class="p">:</span> <span class="nb">bool</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">dim_model</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">feedforward_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">multi_head_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">position_encoding_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">layer_norm_style</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;post&quot;</span><span class="p">,</span>
-        <span class="n">use_triton</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="n">dim_model</span><span class="o">=</span><span class="n">dim_model</span><span class="p">,</span>
-            <span class="n">feedforward_config</span><span class="o">=</span><span class="n">feedforward_config</span><span class="p">,</span>
-            <span class="n">position_encoding_config</span><span class="o">=</span><span class="n">position_encoding_config</span><span class="p">,</span>
-            <span class="n">layer_norm_style</span><span class="o">=</span><span class="n">LayerNormStyle</span><span class="p">(</span><span class="n">layer_norm_style</span><span class="p">),</span>
-            <span class="n">block_type</span><span class="o">=</span><span class="n">BlockType</span><span class="p">(</span><span class="s2">&quot;encoder&quot;</span><span class="p">),</span>
-        <span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">multi_head_config</span> <span class="o">=</span> <span class="n">multi_head_config</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">use_triton</span> <span class="o">=</span> <span class="n">use_triton</span></div>
-
-
-<div class="viewcode-block" id="xFormerDecoderConfig"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.xFormerDecoderConfig">[docs]</a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">xFormerDecoderConfig</span><span class="p">(</span><span class="n">xFormerBlockConfig</span><span class="p">):</span>
-    <span class="n">multi_head_config_masked</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>  <span class="c1"># prior to encoder output</span>
-    <span class="n">multi_head_config_cross</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>  <span class="c1"># cross attention, takes encoder output</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">dim_model</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">feedforward_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">multi_head_config_masked</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">multi_head_config_cross</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">position_encoding_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">layer_norm_style</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;post&quot;</span><span class="p">,</span>
-        <span class="n">use_triton</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="n">dim_model</span><span class="o">=</span><span class="n">dim_model</span><span class="p">,</span>
-            <span class="n">feedforward_config</span><span class="o">=</span><span class="n">feedforward_config</span><span class="p">,</span>
-            <span class="n">position_encoding_config</span><span class="o">=</span><span class="n">position_encoding_config</span><span class="p">,</span>
-            <span class="n">layer_norm_style</span><span class="o">=</span><span class="n">LayerNormStyle</span><span class="p">(</span><span class="n">layer_norm_style</span><span class="p">),</span>
-            <span class="n">block_type</span><span class="o">=</span><span class="n">BlockType</span><span class="p">(</span><span class="s2">&quot;encoder&quot;</span><span class="p">),</span>
-        <span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">multi_head_config_masked</span> <span class="o">=</span> <span class="n">multi_head_config_masked</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">multi_head_config_cross</span> <span class="o">=</span> <span class="n">multi_head_config_cross</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">use_triton</span> <span class="o">=</span> <span class="n">use_triton</span></div>
-
-
 <div class="viewcode-block" id="xFormerEncoderBlock"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.xFormerEncoderBlock">[docs]</a><span class="k">class</span> <span class="nc">xFormerEncoderBlock</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="sa">r</span><span class="sd">&quot;&quot;&quot; A vanilla Transformer Encoder block &quot;&quot;&quot;</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;A vanilla Transformer Encoder block&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">xFormerEncoderConfig</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">reversible_f</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reversible_g</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">layer_norm_style</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">layer_norm_style</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">residual_norm_style</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">residual_norm_style</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dim_model</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span>
 
         <span class="c1"># If this layer is the first one, and a pose encoding has been requested</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">pose_encoding</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">build_positional_embedding</span><span class="p">(</span><span class="n">asdict</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">position_encoding_config</span><span class="p">))</span>
-            <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">position_encoding_config</span> <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">layer_position</span><span class="o">.</span><span class="n">is_first</span><span class="p">()</span>
-            <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">position_encoding_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">layer_position</span><span class="o">.</span><span class="n">is_first</span><span class="p">()</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pose_encoding</span> <span class="o">=</span> <span class="n">build_positional_embedding</span><span class="p">(</span>
+                <span class="n">asdict</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">position_encoding_config</span><span class="p">)</span>
+            <span class="p">)</span>
 
-        <span class="c1"># mini helper, builds a LayerNorm with the right Pre/Post config, residuals, and the right dimensions</span>
+            <span class="n">pos_encoding_dim</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">position_encoding_config</span><span class="o">.</span><span class="n">dim_model</span>
+            <span class="n">mha_dim</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">multi_head_config</span><span class="p">[</span><span class="s2">&quot;dim_model&quot;</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">pos_encoding_dim</span> <span class="o">!=</span> <span class="n">mha_dim</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The embedding dim and model dim do not match (</span><span class="si">{</span><span class="n">pos_encoding_dim</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="n">mha_dim</span><span class="si">}</span><span class="s2">), adding a projector layer.&quot;</span>  <span class="c1"># noqa</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">embedding_projector</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">pos_encoding_dim</span><span class="p">,</span> <span class="n">mha_dim</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pose_encoding</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">residual_norm_style</span> <span class="o">==</span> <span class="n">ResidualNormStyle</span><span class="o">.</span><span class="n">DeepNorm</span><span class="p">:</span>
+            <span class="c1"># Just use the layer norm coefficient here,</span>
+            <span class="c1"># the init will be handled at the xformers level (knows about encoder and decoder blocks)</span>
+            <span class="n">deep_norm_coefficients</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">get_deepnorm_coefficients</span><span class="p">(</span>
+                <span class="n">encoder_layers</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">num_layers</span><span class="p">,</span> <span class="n">decoder_layers</span><span class="o">=</span><span class="mi">0</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="n">deep_norm_coefficients</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="n">residual_scale</span> <span class="o">=</span> <span class="n">deep_norm_coefficients</span><span class="o">.</span><span class="n">alpha</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">residual_scale</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+        <span class="c1"># mini helper, builds a normalization layer with the right Pre/Post config, residuals, and the right dimensions</span>
         <span class="n">ln_factory</span> <span class="o">=</span> <span class="n">_get_ln_factory</span><span class="p">(</span>
-            <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">layer_norm_style</span><span class="p">,</span> <span class="n">use_triton</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">use_triton</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">residual_norm_style</span><span class="p">,</span>
+            <span class="n">use_triton</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">use_triton</span><span class="p">,</span>
+            <span class="n">residual</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">residual_scale</span><span class="o">=</span><span class="n">residual_scale</span><span class="p">,</span>
+            <span class="n">normalization</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">normalization</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">mha</span> <span class="o">=</span> <span class="n">build_multi_head_attention</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">multi_head_config</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">feedforward</span> <span class="o">=</span> <span class="n">build_feedforward</span><span class="p">(</span><span class="n">asdict</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">feedforward_config</span><span class="p">))</span>
+        <span class="n">mha</span> <span class="o">=</span> <span class="n">build_multi_head_attention</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">multi_head_config</span><span class="p">)</span>
+        <span class="n">feedforward</span> <span class="o">=</span> <span class="n">build_feedforward</span><span class="p">(</span><span class="n">asdict</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">feedforward_config</span><span class="p">))</span>
+
+        <span class="c1"># Expose attention specific capabilities</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">supports_attention_mask</span> <span class="o">=</span> <span class="n">mha</span><span class="o">.</span><span class="n">attention</span><span class="o">.</span><span class="n">supports_attention_mask</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">requires_same_k_q_dimensions</span> <span class="o">=</span> <span class="n">mha</span><span class="o">.</span><span class="n">attention</span><span class="o">.</span><span class="n">requires_same_k_q_dimensions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">causal</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">mha</span><span class="o">.</span><span class="n">attention</span><span class="o">.</span><span class="n">causal</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">mha</span><span class="o">.</span><span class="n">attention</span><span class="p">,</span> <span class="s2">&quot;causal&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="kc">False</span>
+        <span class="p">)</span>
 
         <span class="c1"># Wrappers handle the different layer norm styles (pre- and post-) and the residual path</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">wrap_att</span> <span class="o">=</span> <span class="n">ln_factory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mha</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Residual</span><span class="p">,</span> <span class="n">PostNorm</span><span class="p">]</span> <span class="o">=</span> <span class="n">ln_factory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feedforward</span><span class="p">)</span>
-
+        <span class="bp">self</span><span class="o">.</span><span class="n">wrap_att</span> <span class="o">=</span> <span class="n">ln_factory</span><span class="p">(</span><span class="n">mha</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Residual</span><span class="p">,</span> <span class="n">PostNorm</span><span class="p">]</span> <span class="o">=</span> <span class="n">ln_factory</span><span class="p">(</span><span class="n">feedforward</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span>
-            <span class="n">config</span><span class="o">.</span><span class="n">layer_norm_style</span> <span class="o">==</span> <span class="n">LayerNormStyle</span><span class="o">.</span><span class="n">Pre</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">residual_norm_style</span> <span class="o">==</span> <span class="n">ResidualNormStyle</span><span class="o">.</span><span class="n">Pre</span>
             <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">layer_position</span><span class="o">.</span><span class="n">is_last</span><span class="p">()</span>
         <span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span> <span class="o">=</span> <span class="n">PostNorm</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span> <span class="o">=</span> <span class="n">PostNorm</span><span class="p">(</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span><span class="p">,</span>
+                <span class="n">normalization</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">normalization</span><span class="p">,</span>
+                <span class="n">use_triton</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">use_triton</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Simplicial embeddings are only used if specified, and on the last layer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">simplicial_embedding</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SimplicialEmbedding</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">simplicial_embeddings</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">layer_position</span><span class="o">.</span><span class="n">is_last</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">simplicial_embedding</span> <span class="o">=</span> <span class="n">SimplicialEmbedding</span><span class="p">(</span>
+                <span class="o">**</span><span class="n">config</span><span class="o">.</span><span class="n">simplicial_embeddings</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Optional patch embedding</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patch_emb</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">patch_embedding_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">patch_emb</span> <span class="o">=</span> <span class="n">build_patch_embedding</span><span class="p">(</span>
+                <span class="n">PatchEmbeddingConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="o">.</span><span class="n">patch_embedding_config</span><span class="p">)</span>
+            <span class="p">)</span>
 
 <div class="viewcode-block" id="xFormerEncoderBlock.from_config"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.xFormerEncoderBlock.from_config">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">xFormerEncoderConfig</span><span class="p">):</span>
@@ -461,9 +416,10 @@
     <span class="k">def</span> <span class="nf">get_reversible_layer</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]:</span>
         <span class="n">ln_factory</span> <span class="o">=</span> <span class="n">_get_ln_factory</span><span class="p">(</span>
             <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span>
-            <span class="n">config</span><span class="o">.</span><span class="n">layer_norm_style</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">residual_norm_style</span><span class="p">,</span>
             <span class="n">residual</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
             <span class="n">use_triton</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">use_triton</span><span class="p">,</span>
+            <span class="n">normalization</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">normalization</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="n">mha</span> <span class="o">=</span> <span class="n">build_multi_head_attention</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">multi_head_config</span><span class="p">)</span>
@@ -476,11 +432,17 @@
 <div class="viewcode-block" id="xFormerEncoderBlock.forward"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.xFormerEncoderBlock.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">att_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">att_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">AttentionMask</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">input_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pose_encoding</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">patch_emb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">patch_emb</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pose_encoding</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pose_encoding</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;embedding_projector&quot;</span><span class="p">):</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding_projector</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 
         <span class="c1"># Handle the optional input masking, differs on Q, K, V</span>
         <span class="k">if</span> <span class="n">input_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -491,8 +453,12 @@
             <span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">x</span>
 
         <span class="c1"># Pre/Post norms and residual paths are already handled</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrap_att</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">att_mask</span><span class="o">=</span><span class="n">att_mask</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrap_att</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="p">[</span><span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">att_mask</span><span class="o">=</span><span class="n">att_mask</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="p">])</span>
+
+        <span class="c1"># Optional simplicial embeddings</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">simplicial_embedding</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">simplicial_embedding</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">x</span></div></div>
 
@@ -506,30 +472,78 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
         <span class="c1"># If this layer is the first one, and a pose encoding as been requested</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">pose_encoding</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">build_positional_embedding</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">position_encoding_config</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">position_encoding_config</span> <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">layer_position</span><span class="o">.</span><span class="n">is_first</span><span class="p">()</span>
-            <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">position_encoding_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">layer_position</span><span class="o">.</span><span class="n">is_first</span><span class="p">()</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pose_encoding</span> <span class="o">=</span> <span class="n">build_positional_embedding</span><span class="p">(</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">position_encoding_config</span>
+            <span class="p">)</span>
+
+            <span class="n">pos_encoding_dim</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">position_encoding_config</span><span class="o">.</span><span class="n">dim_model</span>
+            <span class="n">mha_dim</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">multi_head_config_masked</span><span class="p">[</span><span class="s2">&quot;dim_model&quot;</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">pos_encoding_dim</span> <span class="o">!=</span> <span class="n">mha_dim</span><span class="p">:</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The embedding dim and model dim do not match (</span><span class="si">{</span><span class="n">pos_encoding_dim</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="n">mha_dim</span><span class="si">}</span><span class="s2">), adding a projector layer.&quot;</span>  <span class="c1"># noqa</span>
+                <span class="p">)</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">embedding_projector</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">pos_encoding_dim</span><span class="p">,</span> <span class="n">mha_dim</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pose_encoding</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">residual_norm_style</span> <span class="o">==</span> <span class="n">ResidualNormStyle</span><span class="o">.</span><span class="n">DeepNorm</span><span class="p">:</span>
+            <span class="c1"># Just use the layer norm coefficient here,</span>
+            <span class="c1"># the init will be handled at the xformers level (knows about encoder and decoder blocks)</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">deep_norm_coefficients</span> <span class="o">=</span> <span class="n">get_deepnorm_coefficients</span><span class="p">(</span>
+                <span class="n">encoder_layers</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">decoder_layers</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">num_layers</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="n">deep_norm_coefficients</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="n">residual_scale</span> <span class="o">=</span> <span class="n">deep_norm_coefficients</span><span class="o">.</span><span class="n">alpha</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">residual_scale</span> <span class="o">=</span> <span class="mf">1.0</span>
 
         <span class="c1"># mini helper, builds a LayerNorm with the right Pre/Post config and the right dimensions</span>
         <span class="n">ln_factory</span> <span class="o">=</span> <span class="n">_get_ln_factory</span><span class="p">(</span>
-            <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">layer_norm_style</span><span class="p">,</span> <span class="n">use_triton</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">use_triton</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">residual_norm_style</span><span class="p">,</span>
+            <span class="n">use_triton</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">use_triton</span><span class="p">,</span>
+            <span class="n">residual</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">residual_scale</span><span class="o">=</span><span class="n">residual_scale</span><span class="p">,</span>
+            <span class="n">normalization</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">normalization</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">mha</span> <span class="o">=</span> <span class="n">build_multi_head_attention</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">multi_head_config_masked</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">cross_mha</span> <span class="o">=</span> <span class="n">build_multi_head_attention</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">multi_head_config_cross</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">feedforward</span> <span class="o">=</span> <span class="n">build_feedforward</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">feedforward_config</span><span class="p">)</span>
+        <span class="n">mha</span> <span class="o">=</span> <span class="n">build_multi_head_attention</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">multi_head_config_masked</span><span class="p">)</span>
+        <span class="n">cross_mha</span> <span class="o">=</span> <span class="n">build_multi_head_attention</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">multi_head_config_cross</span><span class="p">)</span>
+        <span class="n">feedforward</span> <span class="o">=</span> <span class="n">build_feedforward</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">feedforward_config</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">wrap_att</span> <span class="o">=</span> <span class="n">ln_factory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mha</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">wrap_cross</span> <span class="o">=</span> <span class="n">ln_factory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cross_mha</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Residual</span><span class="p">,</span> <span class="n">PostNorm</span><span class="p">]</span> <span class="o">=</span> <span class="n">ln_factory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feedforward</span><span class="p">)</span>
+        <span class="c1"># Expose attention or feedforward specific capabilities</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">supports_attention_mask</span> <span class="o">=</span> <span class="n">mha</span><span class="o">.</span><span class="n">attention</span><span class="o">.</span><span class="n">supports_attention_mask</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">requires_same_k_q_dimensions</span> <span class="o">=</span> <span class="n">mha</span><span class="o">.</span><span class="n">attention</span><span class="o">.</span><span class="n">requires_same_k_q_dimensions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">requires_squared_context_length</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">feedforward</span><span class="o">.</span><span class="n">requires_squared_context</span>
+            <span class="ow">or</span> <span class="n">mha</span><span class="o">.</span><span class="n">attention</span><span class="o">.</span><span class="n">requires_squared_context</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">causal_attention</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">mha</span><span class="o">.</span><span class="n">attention</span><span class="o">.</span><span class="n">causal</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">mha</span><span class="o">.</span><span class="n">attention</span><span class="p">,</span> <span class="s2">&quot;causal&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="kc">False</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Wrappers handle the different layer norm styles (pre- and post-) and the residual path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wrap_att</span> <span class="o">=</span> <span class="n">ln_factory</span><span class="p">(</span><span class="n">mha</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wrap_cross</span> <span class="o">=</span> <span class="n">ln_factory</span><span class="p">(</span><span class="n">cross_mha</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Residual</span><span class="p">,</span> <span class="n">PostNorm</span><span class="p">]</span> <span class="o">=</span> <span class="n">ln_factory</span><span class="p">(</span><span class="n">feedforward</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="p">(</span>
-            <span class="n">config</span><span class="o">.</span><span class="n">layer_norm_style</span> <span class="o">==</span> <span class="n">LayerNormStyle</span><span class="o">.</span><span class="n">Pre</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">residual_norm_style</span> <span class="o">==</span> <span class="n">ResidualNormStyle</span><span class="o">.</span><span class="n">Pre</span>
             <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">layer_position</span><span class="o">.</span><span class="n">is_last</span><span class="p">()</span>
         <span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span> <span class="o">=</span> <span class="n">PostNorm</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span> <span class="o">=</span> <span class="n">PostNorm</span><span class="p">(</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">dim_model</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span><span class="p">,</span>
+                <span class="n">normalization</span><span class="o">=</span><span class="n">NormalizationType</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">,</span>
+            <span class="p">)</span>
 
 <div class="viewcode-block" id="xFormerDecoderBlock.from_config"><a class="viewcode-back" href="../../../factory/block.html#xformers.factory.block_factory.xFormerDecoderBlock.from_config">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">xFormerDecoderConfig</span><span class="p">):</span>
@@ -539,12 +553,15 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">target</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">memory</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">encoder_att_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">decoder_att_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">encoder_att_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">AttentionMask</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">decoder_att_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">AttentionMask</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">input_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pose_encoding</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pose_encoding</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pose_encoding</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;embedding_projector&quot;</span><span class="p">):</span>
+                <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding_projector</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
 
         <span class="c1"># Handle the optional input masking, differs on Q, K, V</span>
         <span class="k">if</span> <span class="n">input_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -554,9 +571,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">target_q</span><span class="p">,</span> <span class="n">target_k</span><span class="p">,</span> <span class="n">target_v</span> <span class="o">=</span> <span class="n">target</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">target</span>
 
-        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrap_att</span><span class="p">([</span><span class="n">target_q</span><span class="p">,</span> <span class="n">target_k</span><span class="p">,</span> <span class="n">target_v</span><span class="p">],</span> <span class="n">att_mask</span><span class="o">=</span><span class="n">decoder_att_mask</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrap_cross</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">memory</span><span class="p">],</span> <span class="n">att_mask</span><span class="o">=</span><span class="n">encoder_att_mask</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrap_att</span><span class="p">(</span>
+            <span class="n">inputs</span><span class="o">=</span><span class="p">[</span><span class="n">target_q</span><span class="p">,</span> <span class="n">target_k</span><span class="p">,</span> <span class="n">target_v</span><span class="p">],</span> <span class="n">att_mask</span><span class="o">=</span><span class="n">decoder_att_mask</span>
+        <span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrap_cross</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">memory</span><span class="p">],</span> <span class="n">att_mask</span><span class="o">=</span><span class="n">encoder_att_mask</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wrap_ff</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="p">])</span>
 
         <span class="k">return</span> <span class="n">x</span></div></div>
 </pre></div>
@@ -575,7 +594,7 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2021, Facebook AI Research.
+        &copy; Copyright Copyright © 2021 Meta Platforms, Inc.
 
     </p>
   </div>
@@ -608,10 +627,11 @@
   
   <script type="text/javascript" id="documentation_options" data-url_root="../../../"
     src="../../../_static/documentation_options.js"></script>
+  <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
   <script src="../../../_static/jquery.js"></script>
   <script src="../../../_static/underscore.js"></script>
+  <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
   <script src="../../../_static/doctools.js"></script>
-  <script src="../../../_static/language_data.js"></script>
   
 
   
@@ -649,6 +669,8 @@
             <li class="list-title"><a href="">Resources</a></li>
             <li><a href="https://github.com/facebookresearch/xformers">Docs</a></li>
             <li><a href="https://github.com/facebookresearch/xformers/issues" target="_blank">Github Issues</a></li>
+            <li><a href="https://opensource.facebook.com/legal/terms">Terms of Use</a></li>
+            <li><a href="https://opensource.facebook.com/legal/privacy">Privacy Policy</a></li>
           </ul>
         </div>
       </div>

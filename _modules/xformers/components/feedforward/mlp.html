@@ -12,7 +12,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>xformers.components.feedforward.mlp | xFormers 0.0.1 documentation</title>
+  <title>xformers.components.feedforward.mlp | xFormers 0.0.15.dev documentation</title>
   
   <script src="../../../../_static/js/ga.js"></script>
   <script src="../../../../_static/js/redirect.js"></script>
@@ -20,9 +20,9 @@
   <link rel="shortcut icon" href="../../../../_static/images/favicon.png" />
   
   
-  <link rel="canonical" href="https://fairinternal.github.io/xformers_modules/xformers/components/feedforward/mlp.html" />
+  <link rel="canonical" href="https://facebookresearch.github.io/xformers_modules/xformers/components/feedforward/mlp.html" />
   
-  <meta property="og:title" content="xformers.components.feedforward.mlp | xFormers 0.0.1 documentation">
+  <meta property="og:title" content="xformers.components.feedforward.mlp | xFormers 0.0.15.dev documentation">
   <meta name="description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <meta property="og:description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <!--<meta property="og:image" content="https://mmf.sh/img/logo.png">-->
@@ -70,8 +70,8 @@
 <div class="container-fluid header-holder tutorials-header" id="header-holder">
   <div class="container">
     <div class="header-container">
-      <a class="header-logo" href="https://github.com/facebookresearch/xformers"><img src="_static/logo.png"
-          style="padding-right: 90px;" width="280px" height="53px"></a>
+      <a class="header-logo" href="https://github.com/facebookresearch/xformers"><img
+          src="../../../../_static/logo.png" style="padding-right: 90px;" width="280px" height="53px"></a>
 
       <div class="main-menu">
         <ul>
@@ -133,29 +133,25 @@
         
         
         
-        <p><span class="caption-text">Index</span></p>
+        <p class="caption" role="heading"><span class="caption-text">Index</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../what_is_xformers.html">What is xFormers?</a></li>
 </ul>
-<p><span class="caption-text">Components Documentation</span></p>
+<p class="caption" role="heading"><span class="caption-text">Components Documentation</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../components/index.html">API Reference</a></li>
 </ul>
-<p><span class="caption-text">Factory</span></p>
+<p class="caption" role="heading"><span class="caption-text">Build models and blocks programatically</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../factory/index.html">Factory</a></li>
 </ul>
-<p><span class="caption-text">Tutorials</span></p>
+<p class="caption" role="heading"><span class="caption-text">Tutorials and examples</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/index.html">Tutorials</a></li>
 </ul>
-<p><span class="caption-text">Custom parts</span></p>
+<p class="caption" role="heading"><span class="caption-text">Some custom parts</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../custom_parts/index.html">Custom parts reference</a></li>
-</ul>
-<p><span class="caption-text">Tools</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../tools/index.html">Tools</a></li>
 </ul>
 
         
@@ -240,8 +236,14 @@
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
 
+<span class="kn">import</span> <span class="nn">xformers</span>
 <span class="kn">from</span> <span class="nn">xformers.components</span> <span class="kn">import</span> <span class="n">Activation</span><span class="p">,</span> <span class="n">build_activation</span>
 <span class="kn">from</span> <span class="nn">xformers.components.feedforward</span> <span class="kn">import</span> <span class="n">Feedforward</span><span class="p">,</span> <span class="n">FeedforwardConfig</span>
+
+<span class="k">if</span> <span class="n">xformers</span><span class="o">.</span><span class="n">_is_functorch_available</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">xformers.components.nvfuser</span> <span class="kn">import</span> <span class="p">(</span>  <span class="c1"># noqa</span>
+        <span class="n">NVFusedBiasActivationDropout</span><span class="p">,</span>
+    <span class="p">)</span>
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">register_feedforward</span>
 
@@ -249,6 +251,7 @@
 <span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">MlpConfig</span><span class="p">(</span><span class="n">FeedforwardConfig</span><span class="p">):</span>
     <span class="n">hidden_layer_multiplier</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span>
 
 
 <div class="viewcode-block" id="MLP"><a class="viewcode-back" href="../../../../components/feedforward.html#xformers.components.feedforward.MLP">[docs]</a><span class="nd">@register_feedforward</span><span class="p">(</span><span class="s2">&quot;MLP&quot;</span><span class="p">,</span> <span class="n">MlpConfig</span><span class="p">)</span>
@@ -259,18 +262,47 @@
         <span class="n">dropout</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">activation</span><span class="p">:</span> <span class="n">Activation</span><span class="p">,</span>
         <span class="n">hidden_layer_multiplier</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="o">*</span><span class="n">args</span><span class="p">,</span>
-        <span class="o">**</span><span class="n">kwargs</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="n">dim_mlp</span> <span class="o">=</span> <span class="n">hidden_layer_multiplier</span> <span class="o">*</span> <span class="n">dim_model</span>
+        <span class="c1"># check if fused Bias Activation Dropout is applicable</span>
+        <span class="k">if</span> <span class="n">xformers</span><span class="o">.</span><span class="n">_is_functorch_available</span><span class="p">:</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">hidden_layer_multiplier</span> <span class="o">*</span> <span class="n">dim_model</span><span class="p">),</span>
-            <span class="n">build_activation</span><span class="p">(</span><span class="n">activation</span><span class="p">),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_layer_multiplier</span> <span class="o">*</span> <span class="n">dim_model</span><span class="p">,</span> <span class="n">dim_model</span><span class="p">),</span>
-            <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">),</span>
-        <span class="p">)</span>
+            <span class="c1"># Catch unimported fused layer</span>
+            <span class="kn">from</span> <span class="nn">xformers.components.nvfuser.bias_act_dropout</span> <span class="kn">import</span> <span class="p">(</span>  <span class="c1"># noqa</span>
+                <span class="n">NVFusedBiasActivationDropout</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">requires_cuda</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+                <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span>
+                    <span class="n">in_features</span><span class="o">=</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">out_features</span><span class="o">=</span><span class="n">dim_mlp</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">),</span>  <span class="c1"># bias is handled in the next layer</span>
+                <span class="n">NVFusedBiasActivationDropout</span><span class="p">(</span>
+                    <span class="n">p</span><span class="o">=</span><span class="n">dropout</span><span class="p">,</span>
+                    <span class="n">bias_shape</span><span class="o">=</span><span class="n">dim_mlp</span> <span class="k">if</span> <span class="n">bias</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">activation</span><span class="o">=</span><span class="n">activation</span><span class="p">,</span>
+                <span class="p">),</span>
+                <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span>
+                    <span class="n">in_features</span><span class="o">=</span><span class="n">dim_mlp</span><span class="p">,</span> <span class="n">out_features</span><span class="o">=</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">),</span>  <span class="c1"># bias is handled in the next layer</span>
+                <span class="n">NVFusedBiasActivationDropout</span><span class="p">(</span>
+                    <span class="n">p</span><span class="o">=</span><span class="n">dropout</span><span class="p">,</span>
+                    <span class="n">bias_shape</span><span class="o">=</span><span class="n">dim_model</span> <span class="k">if</span> <span class="n">bias</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">activation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+                <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">in_features</span><span class="o">=</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">out_features</span><span class="o">=</span><span class="n">dim_mlp</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">),</span>
+                <span class="n">build_activation</span><span class="p">(</span><span class="n">activation</span><span class="p">),</span>
+                <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">),</span>
+                <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">in_features</span><span class="o">=</span><span class="n">dim_mlp</span><span class="p">,</span> <span class="n">out_features</span><span class="o">=</span><span class="n">dim_model</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">),</span>
+                <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">),</span>
+            <span class="p">)</span>
 
 <div class="viewcode-block" id="MLP.forward"><a class="viewcode-back" href="../../../../components/feedforward.html#xformers.components.feedforward.MLP.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span></div></div>
@@ -290,7 +322,7 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2021, Facebook AI Research.
+        &copy; Copyright Copyright © 2021 Meta Platforms, Inc.
 
     </p>
   </div>
@@ -323,10 +355,11 @@
   
   <script type="text/javascript" id="documentation_options" data-url_root="../../../../"
     src="../../../../_static/documentation_options.js"></script>
+  <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
   <script src="../../../../_static/jquery.js"></script>
   <script src="../../../../_static/underscore.js"></script>
+  <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
   <script src="../../../../_static/doctools.js"></script>
-  <script src="../../../../_static/language_data.js"></script>
   
 
   
@@ -364,6 +397,8 @@
             <li class="list-title"><a href="">Resources</a></li>
             <li><a href="https://github.com/facebookresearch/xformers">Docs</a></li>
             <li><a href="https://github.com/facebookresearch/xformers/issues" target="_blank">Github Issues</a></li>
+            <li><a href="https://opensource.facebook.com/legal/terms">Terms of Use</a></li>
+            <li><a href="https://opensource.facebook.com/legal/privacy">Privacy Policy</a></li>
           </ul>
         </div>
       </div>

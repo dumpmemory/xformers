@@ -12,7 +12,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>xformers.components.attention.favor | xFormers 0.0.1 documentation</title>
+  <title>xformers.components.attention.favor | xFormers 0.0.15.dev documentation</title>
   
   <script src="../../../../_static/js/ga.js"></script>
   <script src="../../../../_static/js/redirect.js"></script>
@@ -20,9 +20,9 @@
   <link rel="shortcut icon" href="../../../../_static/images/favicon.png" />
   
   
-  <link rel="canonical" href="https://fairinternal.github.io/xformers_modules/xformers/components/attention/favor.html" />
+  <link rel="canonical" href="https://facebookresearch.github.io/xformers_modules/xformers/components/attention/favor.html" />
   
-  <meta property="og:title" content="xformers.components.attention.favor | xFormers 0.0.1 documentation">
+  <meta property="og:title" content="xformers.components.attention.favor | xFormers 0.0.15.dev documentation">
   <meta name="description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <meta property="og:description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <!--<meta property="og:image" content="https://mmf.sh/img/logo.png">-->
@@ -70,8 +70,8 @@
 <div class="container-fluid header-holder tutorials-header" id="header-holder">
   <div class="container">
     <div class="header-container">
-      <a class="header-logo" href="https://github.com/facebookresearch/xformers"><img src="_static/logo.png"
-          style="padding-right: 90px;" width="280px" height="53px"></a>
+      <a class="header-logo" href="https://github.com/facebookresearch/xformers"><img
+          src="../../../../_static/logo.png" style="padding-right: 90px;" width="280px" height="53px"></a>
 
       <div class="main-menu">
         <ul>
@@ -133,29 +133,25 @@
         
         
         
-        <p><span class="caption-text">Index</span></p>
+        <p class="caption" role="heading"><span class="caption-text">Index</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../what_is_xformers.html">What is xFormers?</a></li>
 </ul>
-<p><span class="caption-text">Components Documentation</span></p>
+<p class="caption" role="heading"><span class="caption-text">Components Documentation</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../components/index.html">API Reference</a></li>
 </ul>
-<p><span class="caption-text">Factory</span></p>
+<p class="caption" role="heading"><span class="caption-text">Build models and blocks programatically</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../factory/index.html">Factory</a></li>
 </ul>
-<p><span class="caption-text">Tutorials</span></p>
+<p class="caption" role="heading"><span class="caption-text">Tutorials and examples</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/index.html">Tutorials</a></li>
 </ul>
-<p><span class="caption-text">Custom parts</span></p>
+<p class="caption" role="heading"><span class="caption-text">Some custom parts</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../custom_parts/index.html">Custom parts reference</a></li>
-</ul>
-<p><span class="caption-text">Tools</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../tools/index.html">Tools</a></li>
 </ul>
 
         
@@ -241,6 +237,7 @@
 
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">from</span> <span class="nn">torch.cuda.amp</span> <span class="kn">import</span> <span class="n">autocast</span>
 
 <span class="kn">from</span> <span class="nn">xformers.components.attention</span> <span class="kn">import</span> <span class="n">Attention</span><span class="p">,</span> <span class="n">AttentionConfig</span><span class="p">,</span> <span class="n">register_attention</span>
 <span class="kn">from</span> <span class="nn">xformers.components.attention.feature_maps</span> <span class="kn">import</span> <span class="p">(</span>
@@ -251,9 +248,12 @@
     <span class="n">SMReg</span><span class="p">,</span>
 <span class="p">)</span>
 
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;xformers&quot;</span><span class="p">)</span>
+
 
 <span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">FavorAttentionConfig</span><span class="p">(</span><span class="n">AttentionConfig</span><span class="p">):</span>
+    <span class="n">causal</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span>
     <span class="n">dim_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># The dimensions of the random features</span>
     <span class="n">dim_head</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
         <span class="nb">int</span>
@@ -279,24 +279,28 @@
         <span class="o">**</span><span class="n">__</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Kernelized attention, as proposed in Performers_.</span>
+<span class="sd">        Kernelized attention, as proposed in Performers_</span>
+<span class="sd">        (&quot;Rethinking attention with performers.&quot; K. Choromanski et al. (2020).).</span>
 
 <span class="sd">        FAVOR stands for &quot;Fast Attention Via positive Orthogonal Random features&quot;</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            dropout (float): the probability of an output to be randomly dropped at training time</span>
 <span class="sd">            dim_features (int): the dimension of the random features space</span>
-<span class="sd">            iter_before_redraw (int): the number of iterations before a redraw of the features</span>
+<span class="sd">            iter_before_redraw (int): the number of steps (forward calls) before a redraw of the features</span>
 <span class="sd">            feature_map_type (FeatureMapType): the type of feature map being used,</span>
 <span class="sd">            for instance orthogonal random features.</span>
 
-<span class="sd">        .. _Performers: &quot;Rethinking attention with performers.&quot; K. Choromanski et al. (2020).</span>
-<span class="sd">            https://arxiv.org/pdf/2009.14794v1.pdf</span>
+<span class="sd">        .. _Performers: https://arxiv.org/pdf/2009.14794v1.pdf</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">causal</span> <span class="o">=</span> <span class="n">causal</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">iter_before_redraw</span> <span class="o">=</span> <span class="n">iter_before_redraw</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">iter_before_redraw</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">iter_before_redraw</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">iter_before_redraw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="n">iter_before_redraw</span>
+        <span class="p">)</span>  <span class="c1"># This will be used for both key and query</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">normalize_inputs</span> <span class="o">=</span> <span class="n">normalize_inputs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">feature_map_type</span> <span class="o">=</span> <span class="n">feature_map_type</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">attn_drop</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -309,7 +313,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">dim_features</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">dim_features</span> <span class="o">//</span> <span class="mi">2</span>
             <span class="p">)</span>  <span class="c1"># needs to be even for some variants</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;FAVOR: Automatically setting the random mapping dimension to </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim_features</span><span class="si">}</span><span class="s2"> from </span><span class="si">{</span><span class="n">dim_head</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -327,55 +331,68 @@
             <span class="s2">&quot;normalize_inputs&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_inputs</span><span class="p">,</span>
         <span class="p">}</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">feature_map_query</span><span class="p">:</span> <span class="n">FeatureMap</span> <span class="o">=</span> <span class="n">feature_map_constructor</span><span class="p">(</span><span class="o">**</span><span class="n">feature_settings</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">feature_map_key</span><span class="p">:</span> <span class="n">FeatureMap</span> <span class="o">=</span> <span class="n">feature_map_constructor</span><span class="p">(</span><span class="o">**</span><span class="n">feature_settings</span><span class="p">)</span>  <span class="c1"># type: ignore</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature_map</span><span class="p">:</span> <span class="n">FeatureMap</span> <span class="o">=</span> <span class="n">feature_map_constructor</span><span class="p">(</span><span class="o">**</span><span class="n">feature_settings</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+
+        <span class="c1"># Properties specific to this attention mechanism</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">supports_attention_mask</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">supports_key_padding_mask</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_maybe_promote</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="c1"># Only promote fp16 buffers, bfloat16 would be fine for instance</span>
+        <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">float16</span> <span class="k">else</span> <span class="n">x</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_causal_attention</span><span class="p">(</span>
         <span class="n">k_prime</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">q_prime</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-        <span class="c1"># TODO(@lefaudeux): Rewrite as suggested in</span>
-        <span class="c1"># https://github.com/fairinternal/xformers/pull/61#discussion_r628420093</span>
         <span class="c1"># Algorithm 1 in the paper</span>
-        <span class="n">ref_v</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">v</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">ref_v</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>  <span class="c1"># BATCH x SEQ x 1 x EMB</span>
+        <span class="n">Gps</span> <span class="o">=</span> <span class="n">k_prime</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">Grenorm</span> <span class="o">=</span> <span class="n">k_prime</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">ref_v</span>
 
-        <span class="n">Gps</span> <span class="o">=</span> <span class="n">k_prime</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">Grenorm</span> <span class="o">=</span> <span class="n">k_prime</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">ref_v</span>
+        <span class="c1"># Consolidate against the feature dimension</span>
+        <span class="n">att_raw</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;bcfe,bcf-&gt;bce&quot;</span><span class="p">,</span> <span class="n">Gps</span><span class="p">,</span> <span class="n">q_prime</span><span class="p">)</span>
+        <span class="n">att_norm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;bcfe,bcf-&gt;bce&quot;</span><span class="p">,</span> <span class="n">Grenorm</span><span class="p">,</span> <span class="n">q_prime</span><span class="p">)</span>
 
-        <span class="n">att_raw</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="n">q_prime</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">Gps</span><span class="p">)]</span>
-        <span class="n">att_norm</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="n">q_prime</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">Grenorm</span><span class="p">)]</span>
+        <span class="c1"># Cumulative sum over the sequence</span>
+        <span class="n">att_raw</span> <span class="o">=</span> <span class="n">att_raw</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">att_norm</span> <span class="o">=</span> <span class="n">att_norm</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">k_prime</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
-            <span class="n">Gps</span> <span class="o">+=</span> <span class="n">k_prime</span><span class="p">[:,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span><span class="p">[:,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-            <span class="n">Grenorm</span> <span class="o">+=</span> <span class="n">k_prime</span><span class="p">[:,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">ref_v</span>
-
-            <span class="n">att_raw</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="n">q_prime</span><span class="p">[:,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">Gps</span><span class="p">))</span>
-            <span class="n">att_norm</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="n">q_prime</span><span class="p">[:,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">Grenorm</span><span class="p">))</span>
-
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">att_raw</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">att_norm</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">att_raw</span><span class="p">,</span> <span class="n">att_norm</span>
 
 <div class="viewcode-block" id="FavorAttention.forward"><a class="viewcode-back" href="../../../../components/attentions.html#xformers.components.attention.FavorAttention.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">q</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">k</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">v</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="o">*</span><span class="n">args</span><span class="p">,</span>
-        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">_</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">__</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="c1"># Project key and queries onto the feature map space</span>
-        <span class="n">k_prime</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_map_key</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
-        <span class="n">q_prime</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_map_query</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">causal</span><span class="p">:</span>
-            <span class="n">att_normalization</span> <span class="o">=</span> <span class="n">q_prime</span> <span class="o">@</span> <span class="p">(</span>
-                <span class="n">k_prime</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="n">att_raw</span> <span class="o">=</span> <span class="n">q_prime</span> <span class="o">@</span> <span class="p">(</span><span class="n">k_prime</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">v</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Actually compute attention</span>
-            <span class="n">att_raw</span><span class="p">,</span> <span class="n">att_normalization</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_causal_attention</span><span class="p">(</span><span class="n">k_prime</span><span class="p">,</span> <span class="n">q_prime</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
 
-        <span class="c1"># Normalize</span>
-        <span class="n">att</span> <span class="o">=</span> <span class="n">att_raw</span> <span class="o">/</span> <span class="n">att_normalization</span>
+        <span class="c1"># Project key and queries onto the feature map space</span>
+        <span class="n">k_prime</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_map</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+        <span class="n">q_prime</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_map</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">autocast</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="c1"># The softmax kernel approximation for Favor will easily overflow</span>
+            <span class="c1"># Force the computations here to stay in fp32 for numerical stability</span>
+            <span class="c1"># Note that the dimensions are vastly reduced when compared to scaled_dot_product</span>
+            <span class="n">k_prime</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_promote</span><span class="p">(</span><span class="n">k_prime</span><span class="p">)</span>
+            <span class="n">q_prime</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_promote</span><span class="p">(</span><span class="n">q_prime</span><span class="p">)</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_promote</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">causal</span><span class="p">:</span>
+                <span class="n">att_normalization</span> <span class="o">=</span> <span class="n">q_prime</span> <span class="o">@</span> <span class="p">(</span>
+                    <span class="n">k_prime</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">att_raw</span> <span class="o">=</span> <span class="n">q_prime</span> <span class="o">@</span> <span class="p">(</span><span class="n">k_prime</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">v</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Actually compute attention</span>
+                <span class="n">att_raw</span><span class="p">,</span> <span class="n">att_normalization</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_causal_attention</span><span class="p">(</span><span class="n">k_prime</span><span class="p">,</span> <span class="n">q_prime</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+
+            <span class="c1"># Normalize</span>
+            <span class="n">att</span> <span class="o">=</span> <span class="n">att_raw</span> <span class="o">/</span> <span class="n">att_normalization</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">attn_drop</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">att</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">attn_drop</span><span class="p">(</span><span class="n">att</span><span class="p">)</span>
@@ -397,7 +414,7 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2021, Facebook AI Research.
+        &copy; Copyright Copyright © 2021 Meta Platforms, Inc.
 
     </p>
   </div>
@@ -430,10 +447,11 @@
   
   <script type="text/javascript" id="documentation_options" data-url_root="../../../../"
     src="../../../../_static/documentation_options.js"></script>
+  <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
   <script src="../../../../_static/jquery.js"></script>
   <script src="../../../../_static/underscore.js"></script>
+  <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
   <script src="../../../../_static/doctools.js"></script>
-  <script src="../../../../_static/language_data.js"></script>
   
 
   
@@ -471,6 +489,8 @@
             <li class="list-title"><a href="">Resources</a></li>
             <li><a href="https://github.com/facebookresearch/xformers">Docs</a></li>
             <li><a href="https://github.com/facebookresearch/xformers/issues" target="_blank">Github Issues</a></li>
+            <li><a href="https://opensource.facebook.com/legal/terms">Terms of Use</a></li>
+            <li><a href="https://opensource.facebook.com/legal/privacy">Privacy Policy</a></li>
           </ul>
         </div>
       </div>

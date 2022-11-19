@@ -13,7 +13,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Replace all attentions from an existing ViT model with a sparse equivalent ? | xFormers 0.0.1 documentation</title>
+  <title>Replace all attentions from an existing ViT model with a sparse equivalent? | xFormers 0.0.15.dev documentation</title>
   
   <script src="../_static/js/ga.js"></script>
   <script src="../_static/js/redirect.js"></script>
@@ -21,9 +21,9 @@
   <link rel="shortcut icon" href="../_static/images/favicon.png" />
   
   
-  <link rel="canonical" href="https://fairinternal.github.io/xformerstutorials/sparse_vit.html" />
+  <link rel="canonical" href="https://facebookresearch.github.io/xformerstutorials/sparse_vit.html" />
   
-  <meta property="og:title" content="Replace all attentions from an existing ViT model with a sparse equivalent ? | xFormers 0.0.1 documentation">
+  <meta property="og:title" content="Replace all attentions from an existing ViT model with a sparse equivalent? | xFormers 0.0.15.dev documentation">
   <meta name="description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <meta property="og:description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <!--<meta property="og:image" content="https://mmf.sh/img/logo.png">-->
@@ -43,7 +43,7 @@
   <link rel="stylesheet" href="../_static/css/customize.css" type="text/css" />
   <link rel="index" title="Index" href="../genindex.html" />
   <link rel="search" title="Search" href="../search.html" />
-  <link rel="next" title="Extend the xFormers parts zoo" href="extend_attentions.html" />
+  <link rel="next" title="Using BlockSparseAttention" href="blocksparse.html" />
   <link rel="prev" title="Tutorials" href="index.html" /> 
 
   
@@ -73,8 +73,8 @@
 <div class="container-fluid header-holder tutorials-header" id="header-holder">
   <div class="container">
     <div class="header-container">
-      <a class="header-logo" href="https://github.com/facebookresearch/xformers"><img src="_static/logo.png"
-          style="padding-right: 90px;" width="280px" height="53px"></a>
+      <a class="header-logo" href="https://github.com/facebookresearch/xformers"><img
+          src="../_static/logo.png" style="padding-right: 90px;" width="280px" height="53px"></a>
 
       <div class="main-menu">
         <ul>
@@ -136,29 +136,25 @@
         
         
         
-        <p><span class="caption-text">Index</span></p>
+        <p class="caption" role="heading"><span class="caption-text">Index</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../what_is_xformers.html">What is xFormers?</a></li>
 </ul>
-<p><span class="caption-text">Components Documentation</span></p>
+<p class="caption" role="heading"><span class="caption-text">Components Documentation</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../components/index.html">API Reference</a></li>
 </ul>
-<p><span class="caption-text">Factory</span></p>
+<p class="caption" role="heading"><span class="caption-text">Build models and blocks programatically</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../factory/index.html">Factory</a></li>
 </ul>
-<p><span class="caption-text">Tutorials</span></p>
+<p class="caption" role="heading"><span class="caption-text">Tutorials and examples</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Tutorials</a></li>
 </ul>
-<p><span class="caption-text">Custom parts</span></p>
+<p class="caption" role="heading"><span class="caption-text">Some custom parts</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../custom_parts/index.html">Custom parts reference</a></li>
-</ul>
-<p><span class="caption-text">Tools</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../tools/index.html">Tools</a></li>
 </ul>
 
         
@@ -201,7 +197,7 @@
         
           <li><a href="index.html">Tutorials</a> &gt;</li>
         
-      <li>Replace all attentions from an existing ViT model with a sparse equivalent ?</li>
+      <li>Replace all attentions from an existing ViT model with a sparse equivalent?</li>
     
     
       <li class="pytorch-breadcrumbs-aside">
@@ -234,14 +230,14 @@
               <article itemprop="articleBody" id="pytorch-article" class="pytorch-article">
                 
   <section id="replace-all-attentions-from-an-existing-vit-model-with-a-sparse-equivalent">
-<h1>Replace all attentions from an existing ViT model with a sparse equivalent ?<a class="headerlink" href="#replace-all-attentions-from-an-existing-vit-model-with-a-sparse-equivalent" title="Permalink to this headline">¶</a></h1>
+<h1>Replace all attentions from an existing ViT model with a sparse equivalent?<a class="headerlink" href="#replace-all-attentions-from-an-existing-vit-model-with-a-sparse-equivalent" title="Permalink to this heading">¶</a></h1>
 <p>Let’s say you’re used to working with a given Transformer based model, and want to experiment with one of the attention mechanisms supported by xFormers.</p>
 <p>The following example shows how to do that in a particular example (reusing a reference ViT from <a class="reference external" href="https://github.com/rwightman/pytorch-image-models">pytorch-image-models</a>), but some aspects will translate just as well
 when considering other model sources. In any case, please check the notebooks in the <a class="reference external" href="https://github.com/facebookresearch/xformers">repository</a> for a more exhaustive take.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">timm</span>
 <span class="kn">from</span> <span class="nn">timm.models.vision_transformer</span> <span class="kn">import</span> <span class="n">VisionTransformer</span>
 <span class="kn">from</span> <span class="nn">xformers.components.attention</span> <span class="kn">import</span> <span class="n">ScaledDotProduct</span>
-<span class="kn">from</span> <span class="nn">xformers.components.attention.helpers</span> <span class="kn">import</span> <span class="n">TimmAttentionWrapper</span>
+<span class="kn">from</span> <span class="nn">xformers.helpers.timm_sparse_attention</span> <span class="kn">import</span> <span class="n">TimmSparseAttention</span>
 <span class="n">img_size</span> <span class="o">=</span> <span class="mi">224</span>
 <span class="n">patch_size</span> <span class="o">=</span> <span class="mi">16</span>
 
@@ -262,15 +258,16 @@ when considering other model sources. In any case, please check the notebooks in
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">timm</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">vision_transformer</span><span class="o">.</span><span class="n">Attention</span><span class="p">):</span>
         <span class="n">qkv</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="n">qkv</span>
         <span class="n">dim</span> <span class="o">=</span> <span class="n">qkv</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">module</span><span class="o">.</span><span class="n">num_heads</span>
-        <span class="c1"># Extra parameters can be exposed in TimmAttentionWrapper, this is a minimal example</span>
-        <span class="n">module_output</span> <span class="o">=</span> <span class="n">TimmAttentionWrapper</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">module</span><span class="o">.</span><span class="n">num_heads</span><span class="p">,</span> <span class="n">attn_mask</span><span class="o">=</span><span class="n">att_mask</span><span class="p">)</span>
+        <span class="c1"># Extra parameters can be exposed in TimmSparseAttention, this is a minimal example</span>
+        <span class="n">module_output</span> <span class="o">=</span> <span class="n">TimmSparseAttention</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">module</span><span class="o">.</span><span class="n">num_heads</span><span class="p">,</span> <span class="n">attn_mask</span><span class="o">=</span><span class="n">att_mask</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">named_children</span><span class="p">():</span>
         <span class="n">module_output</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">replace_attn_with_xformers_one</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">att_mask</span><span class="p">))</span>
     <span class="k">del</span> <span class="n">module</span>
+
     <span class="k">return</span> <span class="n">module_output</span>
 
 <span class="c1"># Now we can just patch our reference model, and get a sparse-aware variation</span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">replace_attn_with_xformers_one</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">replace_attn_with_xformers_one</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">my_fancy_mask</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Note that in practice exchanging all the attentions with a sparse alternative may not be a good idea, as the attentions closer to the output are not typically exhibiting a clear sparsity pattern. You can alter <cite>replace_attn_with_xformers_one</cite> above, or replace manually the attentions which would like to sparsify, but not all</p>
@@ -284,7 +281,7 @@ when considering other model sources. In any case, please check the notebooks in
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="extend_attentions.html" class="btn btn-neutral float-right" title="Extend the xFormers parts zoo" accesskey="n" rel="next">Next <img src="../_static/images/chevron-right-orange.svg" class="next-page"></a>
+        <a href="blocksparse.html" class="btn btn-neutral float-right" title="Using BlockSparseAttention" accesskey="n" rel="next">Next <img src="../_static/images/chevron-right-orange.svg" class="next-page"></a>
       
       
         <a href="index.html" class="btn btn-neutral" title="Tutorials" accesskey="p" rel="prev"><img src="../_static/images/chevron-right-orange.svg" class="previous-page"> Previous</a>
@@ -300,7 +297,7 @@ when considering other model sources. In any case, please check the notebooks in
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2021, Facebook AI Research.
+        &copy; Copyright Copyright © 2021 Meta Platforms, Inc.
 
     </p>
   </div>
@@ -319,7 +316,7 @@ when considering other model sources. In any case, please check the notebooks in
           <div class="pytorch-right-menu" id="pytorch-right-menu">
             <div class="pytorch-side-scroll" id="pytorch-side-scroll-right">
               <ul>
-<li><a class="reference internal" href="#">Replace all attentions from an existing ViT model with a sparse equivalent ?</a></li>
+<li><a class="reference internal" href="#">Replace all attentions from an existing ViT model with a sparse equivalent?</a></li>
 </ul>
 
             </div>
@@ -336,10 +333,11 @@ when considering other model sources. In any case, please check the notebooks in
   
   <script type="text/javascript" id="documentation_options" data-url_root="../"
     src="../_static/documentation_options.js"></script>
+  <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
   <script src="../_static/jquery.js"></script>
   <script src="../_static/underscore.js"></script>
+  <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
   <script src="../_static/doctools.js"></script>
-  <script src="../_static/language_data.js"></script>
   
 
   
@@ -377,6 +375,8 @@ when considering other model sources. In any case, please check the notebooks in
             <li class="list-title"><a href="">Resources</a></li>
             <li><a href="https://github.com/facebookresearch/xformers">Docs</a></li>
             <li><a href="https://github.com/facebookresearch/xformers/issues" target="_blank">Github Issues</a></li>
+            <li><a href="https://opensource.facebook.com/legal/terms">Terms of Use</a></li>
+            <li><a href="https://opensource.facebook.com/legal/privacy">Privacy Policy</a></li>
           </ul>
         </div>
       </div>

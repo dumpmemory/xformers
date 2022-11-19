@@ -12,7 +12,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>xformers.components.attention.ortho | xFormers 0.0.1 documentation</title>
+  <title>xformers.components.attention.ortho | xFormers 0.0.15.dev documentation</title>
   
   <script src="../../../../_static/js/ga.js"></script>
   <script src="../../../../_static/js/redirect.js"></script>
@@ -20,9 +20,9 @@
   <link rel="shortcut icon" href="../../../../_static/images/favicon.png" />
   
   
-  <link rel="canonical" href="https://fairinternal.github.io/xformers_modules/xformers/components/attention/ortho.html" />
+  <link rel="canonical" href="https://facebookresearch.github.io/xformers_modules/xformers/components/attention/ortho.html" />
   
-  <meta property="og:title" content="xformers.components.attention.ortho | xFormers 0.0.1 documentation">
+  <meta property="og:title" content="xformers.components.attention.ortho | xFormers 0.0.15.dev documentation">
   <meta name="description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <meta property="og:description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <!--<meta property="og:image" content="https://mmf.sh/img/logo.png">-->
@@ -70,8 +70,8 @@
 <div class="container-fluid header-holder tutorials-header" id="header-holder">
   <div class="container">
     <div class="header-container">
-      <a class="header-logo" href="https://github.com/facebookresearch/xformers"><img src="_static/logo.png"
-          style="padding-right: 90px;" width="280px" height="53px"></a>
+      <a class="header-logo" href="https://github.com/facebookresearch/xformers"><img
+          src="../../../../_static/logo.png" style="padding-right: 90px;" width="280px" height="53px"></a>
 
       <div class="main-menu">
         <ul>
@@ -133,29 +133,25 @@
         
         
         
-        <p><span class="caption-text">Index</span></p>
+        <p class="caption" role="heading"><span class="caption-text">Index</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../what_is_xformers.html">What is xFormers?</a></li>
 </ul>
-<p><span class="caption-text">Components Documentation</span></p>
+<p class="caption" role="heading"><span class="caption-text">Components Documentation</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../components/index.html">API Reference</a></li>
 </ul>
-<p><span class="caption-text">Factory</span></p>
+<p class="caption" role="heading"><span class="caption-text">Build models and blocks programatically</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../factory/index.html">Factory</a></li>
 </ul>
-<p><span class="caption-text">Tutorials</span></p>
+<p class="caption" role="heading"><span class="caption-text">Tutorials and examples</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/index.html">Tutorials</a></li>
 </ul>
-<p><span class="caption-text">Custom parts</span></p>
+<p class="caption" role="heading"><span class="caption-text">Some custom parts</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../custom_parts/index.html">Custom parts reference</a></li>
-</ul>
-<p><span class="caption-text">Tools</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../tools/index.html">Tools</a></li>
 </ul>
 
         
@@ -238,18 +234,25 @@
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">torch.autograd.profiler</span> <span class="k">as</span> <span class="nn">profiler</span>
 <span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
 <span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">Fn</span>
 
-<span class="kn">from</span> <span class="nn">xformers.components.attention</span> <span class="kn">import</span> <span class="n">Attention</span><span class="p">,</span> <span class="n">AttentionConfig</span><span class="p">,</span> <span class="n">register_attention</span>
+<span class="kn">from</span> <span class="nn">xformers.components.attention</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Attention</span><span class="p">,</span>
+    <span class="n">AttentionConfig</span><span class="p">,</span>
+    <span class="n">AttentionMask</span><span class="p">,</span>
+    <span class="n">register_attention</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">xformers.components.attention.core</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">scaled_dot_product_attention</span><span class="p">,</span>
     <span class="n">scaled_query_key_softmax</span><span class="p">,</span>
 <span class="p">)</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;xformers&quot;</span><span class="p">)</span>
 
 
 <span class="k">class</span> <span class="nc">LandmarkSelection</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
@@ -301,14 +304,18 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">num_landmarks</span> <span class="o">=</span> <span class="n">num_landmarks</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">attn_drop</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subsample_fraction</span> <span class="o">=</span> <span class="n">subsample_fraction</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">landmark_selection</span> <span class="o">=</span> <span class="n">landmark_selection</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">landmark_selection</span> <span class="o">=</span> <span class="n">landmark_selection</span>
+
+        <span class="c1"># Properties specific to this attention mechanism</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">supports_attention_mask</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">supports_key_padding_mask</span> <span class="o">=</span> <span class="kc">False</span></div>
 
 <div class="viewcode-block" id="OrthoFormerAttention.forward"><a class="viewcode-back" href="../../../../components/attentions.html#xformers.components.attention.OrthoFormerAttention.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">q</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">k</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">v</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">att_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">att_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">AttentionMask</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="n">args</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
@@ -332,7 +339,7 @@
                     <span class="n">landmarks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cluster_landmarks</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">spherical</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">att_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                     <span class="s2">&quot;Orthoformer: attention mask passed alongside with using landmarks to reduce dimensions. </span><span class="se">\</span>
 <span class="s2">                    The two are typically not compatible&quot;</span>
                 <span class="p">)</span>
@@ -361,9 +368,11 @@
 <span class="sd">        Returns near orthogonal landmarks with shape (B, M, D).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
+        <span class="n">num_landmarks</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_landmarks</span><span class="p">,</span> <span class="n">q</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">subsample_fraction</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">:</span>
             <span class="n">num_samples</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
-                <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subsample_fraction</span> <span class="o">*</span> <span class="n">q</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)),</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_landmarks</span>
+                <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subsample_fraction</span> <span class="o">*</span> <span class="n">q</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)),</span> <span class="n">num_landmarks</span>
             <span class="p">)</span>  <span class="c1"># Need at least M/2 samples of queries and keys</span>
             <span class="n">q_samples</span> <span class="o">=</span> <span class="n">q</span><span class="p">[:,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="n">num_samples</span><span class="p">,)),</span> <span class="p">:]</span>  <span class="c1"># (B, N, D)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -374,10 +383,10 @@
                 <span class="n">q_samples</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span>
             <span class="p">)</span>  <span class="c1"># may need to change default eps to eps=1e-8 for mixed precision compatibility</span>
             <span class="n">landmarks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kmeans_spherical</span><span class="p">(</span>
-                <span class="n">q_samples_normalized</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_landmarks</span><span class="p">,</span> <span class="n">num_iters</span>
+                <span class="n">q_samples_normalized</span><span class="p">,</span> <span class="n">num_landmarks</span><span class="p">,</span> <span class="n">num_iters</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">landmarks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kmeans</span><span class="p">(</span><span class="n">q_samples</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_landmarks</span><span class="p">,</span> <span class="n">num_iters</span><span class="p">)</span>
+            <span class="n">landmarks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kmeans</span><span class="p">(</span><span class="n">q_samples</span><span class="p">,</span> <span class="n">num_landmarks</span><span class="p">,</span> <span class="n">num_iters</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">landmarks</span>  <span class="c1"># (B, M, D)</span>
 
     <span class="k">def</span> <span class="nf">_kmeans</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">K</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_iters</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">):</span>
@@ -389,7 +398,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
-        <span class="k">assert</span> <span class="n">K</span> <span class="o">&lt;=</span> <span class="n">N</span>
+        <span class="k">assert</span> <span class="n">K</span> <span class="o">&lt;=</span> <span class="n">N</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">K</span><span class="si">}</span><span class="s2"> &gt; </span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2">&quot;</span>
+
         <span class="n">c</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span>
             <span class="p">:,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)[:</span><span class="n">K</span><span class="p">],</span> <span class="p">:</span>
         <span class="p">]</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>  <span class="c1"># initialisation for the centroids</span>
@@ -424,7 +434,7 @@
 <span class="sd">            x: (B, N, D)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
-        <span class="k">assert</span> <span class="n">K</span> <span class="o">&lt;=</span> <span class="n">N</span>
+        <span class="k">assert</span> <span class="n">K</span> <span class="o">&lt;=</span> <span class="n">N</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">K</span><span class="si">}</span><span class="s2"> &gt; </span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s2">&quot;</span>
 
         <span class="c1"># initialisation for the centroids</span>
         <span class="n">c</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)[:</span><span class="n">K</span><span class="p">],</span> <span class="p">:]</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
@@ -555,7 +565,7 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2021, Facebook AI Research.
+        &copy; Copyright Copyright © 2021 Meta Platforms, Inc.
 
     </p>
   </div>
@@ -588,10 +598,11 @@
   
   <script type="text/javascript" id="documentation_options" data-url_root="../../../../"
     src="../../../../_static/documentation_options.js"></script>
+  <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
   <script src="../../../../_static/jquery.js"></script>
   <script src="../../../../_static/underscore.js"></script>
+  <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
   <script src="../../../../_static/doctools.js"></script>
-  <script src="../../../../_static/language_data.js"></script>
   
 
   
@@ -629,6 +640,8 @@
             <li class="list-title"><a href="">Resources</a></li>
             <li><a href="https://github.com/facebookresearch/xformers">Docs</a></li>
             <li><a href="https://github.com/facebookresearch/xformers/issues" target="_blank">Github Issues</a></li>
+            <li><a href="https://opensource.facebook.com/legal/terms">Terms of Use</a></li>
+            <li><a href="https://opensource.facebook.com/legal/privacy">Privacy Policy</a></li>
           </ul>
         </div>
       </div>

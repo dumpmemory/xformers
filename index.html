@@ -13,7 +13,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Welcome to xFormers’s documentation! | xFormers 0.0.1 documentation</title>
+  <title>Welcome to xFormers’s documentation! | xFormers 0.0.15.dev documentation</title>
   
   <script src="_static/js/ga.js"></script>
   <script src="_static/js/redirect.js"></script>
@@ -21,9 +21,9 @@
   <link rel="shortcut icon" href="_static/images/favicon.png" />
   
   
-  <link rel="canonical" href="https://fairinternal.github.io/xformersindex.html" />
+  <link rel="canonical" href="https://facebookresearch.github.io/xformersindex.html" />
   
-  <meta property="og:title" content="Welcome to xFormers’s documentation! | xFormers 0.0.1 documentation">
+  <meta property="og:title" content="Welcome to xFormers’s documentation! | xFormers 0.0.15.dev documentation">
   <meta name="description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <meta property="og:description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <!--<meta property="og:image" content="https://mmf.sh/img/logo.png">-->
@@ -72,8 +72,8 @@
 <div class="container-fluid header-holder tutorials-header" id="header-holder">
   <div class="container">
     <div class="header-container">
-      <a class="header-logo" href="https://github.com/facebookresearch/xformers"><img src="_static/logo.png"
-          style="padding-right: 90px;" width="280px" height="53px"></a>
+      <a class="header-logo" href="https://github.com/facebookresearch/xformers"><img
+          src="_static/logo.png" style="padding-right: 90px;" width="280px" height="53px"></a>
 
       <div class="main-menu">
         <ul>
@@ -135,29 +135,25 @@
         
         
         
-        <p><span class="caption-text">Index</span></p>
+        <p class="caption" role="heading"><span class="caption-text">Index</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="what_is_xformers.html">What is xFormers?</a></li>
 </ul>
-<p><span class="caption-text">Components Documentation</span></p>
+<p class="caption" role="heading"><span class="caption-text">Components Documentation</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="components/index.html">API Reference</a></li>
 </ul>
-<p><span class="caption-text">Factory</span></p>
+<p class="caption" role="heading"><span class="caption-text">Build models and blocks programatically</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="factory/index.html">Factory</a></li>
 </ul>
-<p><span class="caption-text">Tutorials</span></p>
+<p class="caption" role="heading"><span class="caption-text">Tutorials and examples</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">Tutorials</a></li>
 </ul>
-<p><span class="caption-text">Custom parts</span></p>
+<p class="caption" role="heading"><span class="caption-text">Some custom parts</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="custom_parts/index.html">Custom parts reference</a></li>
-</ul>
-<p><span class="caption-text">Tools</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="tools/index.html">Tools</a></li>
 </ul>
 
         
@@ -231,7 +227,7 @@
               <article itemprop="articleBody" id="pytorch-article" class="pytorch-article">
                 
   <section id="welcome-to-xformers-s-documentation">
-<h1>Welcome to xFormers’s documentation!<a class="headerlink" href="#welcome-to-xformers-s-documentation" title="Permalink to this headline">¶</a></h1>
+<h1>Welcome to xFormers’s documentation!<a class="headerlink" href="#welcome-to-xformers-s-documentation" title="Permalink to this heading">¶</a></h1>
 <p><em>xFormers</em> is a PyTorch based library which hosts flexible Transformers parts.
 They are interoperable and optimized building blocks, which can be optionally be combined
 to create some state of the art models.</p>
@@ -242,9 +238,10 @@ to create some state of the art models.</p>
 <div class="line"><br /></div>
 </div>
 <div class="toctree-wrapper compound">
-<p><span class="caption-text">Components Documentation</span></p>
+<p class="caption" role="heading"><span class="caption-text">Components Documentation</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="components/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="components/ops.html">Operators</a></li>
 <li class="toctree-l2"><a class="reference internal" href="components/attentions.html">Attention mechanisms</a></li>
 <li class="toctree-l2"><a class="reference internal" href="components/feedforward.html">Feedforward mechanisms</a></li>
 <li class="toctree-l2"><a class="reference internal" href="components/position_embedding.html">Position Embeddings</a></li>
@@ -259,7 +256,7 @@ to create some state of the art models.</p>
 <div class="line"><br /></div>
 </div>
 <div class="toctree-wrapper compound">
-<p><span class="caption-text">Factory</span></p>
+<p class="caption" role="heading"><span class="caption-text">Build models and blocks programatically</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="factory/index.html">Factory</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="factory/block.html">Block factory</a></li>
@@ -273,15 +270,19 @@ to create some state of the art models.</p>
 <div class="line"><br /></div>
 </div>
 <div class="toctree-wrapper compound">
-<p><span class="caption-text">Tutorials</span></p>
+<p class="caption" role="heading"><span class="caption-text">Tutorials and examples</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">Tutorials</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/sparse_vit.html">Replace all attentions from an existing ViT model with a sparse equivalent ?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/sparse_vit.html">Replace all attentions from an existing ViT model with a sparse equivalent?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/blocksparse.html">Using BlockSparseAttention</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/aotautograd_nvfuser.html">How to Enable Fused Operations Using AOTAutograd and NVFuser</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/extend_attentions.html">Extend the xFormers parts zoo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/use_attention.html">I’m only interested in testing out the attention mechanisms that are hosted here</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/pytorch_encoder.html">I’m used to PyTorch Transformer Encoder, do you have an equivalent ?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/pytorch_encoder.html">Building an encoder, comparing to PyTorch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/pytorch_encoder.html#building-full-models">Building full models</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/reversible.html">Using the Reversible block</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/triton.html">Using Triton-based layers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/hierarchical.html">Hierarchical Transformers</a></li>
 </ul>
 </li>
 </ul>
@@ -291,7 +292,7 @@ to create some state of the art models.</p>
 <div class="line"><br /></div>
 </div>
 <div class="toctree-wrapper compound">
-<p><span class="caption-text">Custom parts</span></p>
+<p class="caption" role="heading"><span class="caption-text">Some custom parts</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="custom_parts/index.html">Custom parts reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="custom_parts/index.html#sparse-cuda-kernels">Sparse CUDA kernels</a></li>
@@ -303,14 +304,6 @@ to create some state of the art models.</p>
 <div class="line-block">
 <div class="line"><br /></div>
 <div class="line"><br /></div>
-</div>
-<div class="toctree-wrapper compound">
-<p><span class="caption-text">Tools</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="tools/index.html">Tools</a><ul class="simple">
-</ul>
-</li>
-</ul>
 </div>
 </section>
 
@@ -336,7 +329,7 @@ to create some state of the art models.</p>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2021, Facebook AI Research.
+        &copy; Copyright Copyright © 2021 Meta Platforms, Inc.
 
     </p>
   </div>
@@ -374,10 +367,11 @@ to create some state of the art models.</p>
   
   <script type="text/javascript" id="documentation_options" data-url_root="./"
     src="_static/documentation_options.js"></script>
+  <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
   <script src="_static/jquery.js"></script>
   <script src="_static/underscore.js"></script>
+  <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
   <script src="_static/doctools.js"></script>
-  <script src="_static/language_data.js"></script>
   
 
   
@@ -415,6 +409,8 @@ to create some state of the art models.</p>
             <li class="list-title"><a href="">Resources</a></li>
             <li><a href="https://github.com/facebookresearch/xformers">Docs</a></li>
             <li><a href="https://github.com/facebookresearch/xformers/issues" target="_blank">Github Issues</a></li>
+            <li><a href="https://opensource.facebook.com/legal/terms">Terms of Use</a></li>
+            <li><a href="https://opensource.facebook.com/legal/privacy">Privacy Policy</a></li>
           </ul>
         </div>
       </div>
