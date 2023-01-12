@@ -364,11 +364,14 @@ It is not requires to specify any parameter, as they are only             used w
 <dt class="field-odd">Supported hardware</dt>
 <dd class="field-odd"><p>NVIDIA GPUs with compute capability above 6.0 (P100+), datatype <code class="docutils literal notranslate"><span class="pre">f16</span></code>, <code class="docutils literal notranslate"><span class="pre">bf16</span></code> and <code class="docutils literal notranslate"><span class="pre">f32</span></code>.</p>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3.6/library/exceptions.html#NotImplementedError" title="(in Python v3.6)"><strong>NotImplementedError</strong></a> – if there is no operator available to compute the MHA</p>
+<dt class="field-even">Note</dt>
+<dd class="field-even"><p>This operator may be nondeterministic.</p>
 </dd>
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3.6/library/exceptions.html#NotImplementedError" title="(in Python v3.6)"><strong>NotImplementedError</strong></a> – if there is no operator available to compute the MHA</p>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
 <li><p><strong>query</strong> – Tensor of shape <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">Mq,</span> <span class="pre">H,</span> <span class="pre">K]</span></code></p></li>
 <li><p><strong>key</strong> – Tensor of shape <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">Mkv,</span> <span class="pre">H,</span> <span class="pre">K]</span></code></p></li>
 <li><p><strong>value</strong> – Tensor of shape <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">Mkv,</span> <span class="pre">H,</span> <span class="pre">Kv]</span></code></p></li>
@@ -378,8 +381,8 @@ It is not requires to specify any parameter, as they are only             used w
 <li><p><strong>op</strong> – The operator to use - see <a class="reference internal" href="#xformers.ops.AttentionOpBase" title="xformers.ops.AttentionOpBase"><code class="xref py py-attr docutils literal notranslate"><span class="pre">xformers.ops.AttentionOpBase</span></code></a>.         If set to <code class="docutils literal notranslate"><span class="pre">None</span></code> (recommended), xFormers         will dispatch to the best available operator, depending on the inputs         and options.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>multi-head attention Tensor with shape <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">Mq,</span> <span class="pre">H,</span> <span class="pre">Kv]</span></code></p>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>multi-head attention Tensor with shape <code class="docutils literal notranslate"><span class="pre">[B,</span> <span class="pre">Mq,</span> <span class="pre">H,</span> <span class="pre">Kv]</span></code></p>
 </dd>
 </dl>
 </dd></dl>
