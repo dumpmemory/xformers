@@ -8,15 +8,9 @@ from typing import Dict
 
 import torch
 
-from . import (
-    __version__,
-    _cpp_lib,
-    _is_functorch_available,
-    _is_opensource,
-    _is_triton_available,
-    ops,
-)
+from . import __version__, _cpp_lib, _is_opensource, _is_triton_available, ops
 from .ops.common import OPERATORS_REGISTRY
+from .profiler.profiler_dcgm import DCGM_PROFILER_AVAILABLE
 
 
 def get_features_status() -> Dict[str, str]:
@@ -27,7 +21,6 @@ def get_features_status() -> Dict[str, str]:
     for k, v in ops.swiglu_op._info().items():
         features[f"swiglu.{k}"] = v
     features["is_triton_available"] = str(_is_triton_available())
-    features["is_functorch_available"] = str(_is_functorch_available)
     return features
 
 
@@ -44,6 +37,10 @@ def print_info():
     else:
         features["pytorch.cuda"] = "not available"
 
+    features["dcgm_profiler"] = (
+        "available" if DCGM_PROFILER_AVAILABLE else "unavailable"
+    )
+
     build_info = _cpp_lib._build_metadata
     if build_info is None and isinstance(
         _cpp_lib._cpp_library_load_exception, _cpp_lib.xFormersInvalidLibException
@@ -52,6 +49,7 @@ def print_info():
     if build_info is not None:
         features["build.info"] = "available"
         features["build.cuda_version"] = build_info.cuda_version
+        features["build.hip_version"] = build_info.hip_version
         features["build.python_version"] = build_info.python_version
         features["build.torch_version"] = build_info.torch_version
         for k, v in build_info.build_env.items():

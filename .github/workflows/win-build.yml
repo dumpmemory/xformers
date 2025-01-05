@@ -3,14 +3,16 @@ name: win-build
 on:
   pull_request:
     paths:
+      - "third_party/**"
       - "xformers/csrc/**"
       - ".github/workflows/win-build.yml"
+      - ".github/actions/setup-build-cuda/action.yml"
       - "setup.py"
       - "requirements*.txt"
 
 env:
   FORCE_CUDA: 1
-  MAX_JOBS: 4
+  MAX_JOBS: 6
   DISTUTILS_USE_SDK: 1 # otherwise distutils will complain on windows about multiple versions of msvc
   XFORMERS_BUILD_TYPE: "Release"
 
@@ -23,7 +25,7 @@ jobs:
           - "8.0"
           - "7.0"
     name: win-build-${{ matrix.arch }}
-    runs-on: windows-2019
+    runs-on: windows-8-core
     env:
       PY: python3
       TORCH_CUDA_ARCH_LIST: ${{ matrix.arch }}
@@ -33,6 +35,8 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: Support longpaths
+        run: git config --system core.longpaths true
       - name: Recursive checkout
         uses: actions/checkout@v3
         with:
@@ -40,14 +44,22 @@ jobs:
           path: "."
 
       - name: Setup Runner
-        uses: ./.github/actions/setup-windows-runner
+        uses: ./.github/actions/setup-build-cuda
         with:
-          cuda: "11.6.2"
-          python: "3.8"
+          toolkit_type: "cuda"
+          toolkit_short_version: "124"
+          python: "3.9"
+
+      - name: Remove internal code
+        run: |
+          mkdir -p .github/sync.fairinternal/
+          touch .github/sync.fairinternal/ossify.sh
+          chmod +x .github/sync.fairinternal/ossify.sh
+          .github/sync.fairinternal/ossify.sh
 
       - name: Install build dependencies
         run: |
-          $PY -m pip install wheel setuptools ninja torch==2.0.0 -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu117
+          $PY -m pip install wheel setuptools ninja torch==2.5.1 -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121
           git config --global --add safe.directory "*"
           $PY -c "import torch; print('torch', torch.__version__)"
           $PY -c "import torch; print('torch.cuda', torch.version.cuda)"
@@ -59,4 +71,6 @@ jobs:
         run: $PY -m pip install -v dist/*
 
       - name: Info
-        run: $PY -m xformers.info
+        run: |
+          cd ../../  # So we don't have a folder named `xformers`
+          XFORMERS_MORE_DETAILS=1 $PY -m xformers.info
