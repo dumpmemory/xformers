@@ -3,26 +3,37 @@
 # This source code is licensed under the BSD license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import torch
 
 from .fmha import (
     AttentionBias,
     AttentionOp,
     AttentionOpBase,
-    AttentionOpDispatch,
     LowerTriangularMask,
+    MemoryEfficientAttentionCkOp,
     MemoryEfficientAttentionCutlassFwdFlashBwOp,
     MemoryEfficientAttentionCutlassOp,
     MemoryEfficientAttentionFlashAttentionOp,
-    MemoryEfficientAttentionOp,
-    MemoryEfficientAttentionTritonFwdFlashBwOp,
-    TritonFlashAttentionOp,
+    MemoryEfficientAttentionSplitKCkOp,
     memory_efficient_attention,
     memory_efficient_attention_backward,
     memory_efficient_attention_forward,
     memory_efficient_attention_forward_requires_grad,
 )
 from .indexing import index_select_cat, scaled_index_add
+from .ipc import init_ipc
+from .modpar_layers import ColumnParallelLinear, RowParallelLinear
+from .rmsnorm import RMSNorm
+from .rope_padded import rope_padded
+from .seqpar import sequence_parallel_leading_matmul, sequence_parallel_trailing_matmul
+from .sequence_parallel_fused_ops import (
+    fused_allgather_and_anything,
+    fused_allgather_and_linear,
+    fused_anything_and_reducescatter,
+    fused_linear_and_reducescatter,
+)
+from .sp24 import Sparse24Tensor, sparsify24, sparsify24_like
 from .swiglu_op import (
     SwiGLU,
     SwiGLUEagerOp,
@@ -32,6 +43,7 @@ from .swiglu_op import (
     SwiGLUPackedFusedOp,
     swiglu,
 )
+from .tiled_matmul import tiled_matmul
 from .unbind import get_stack_strides, stack_or_none, unbind
 
 # BW compatibility
@@ -61,21 +73,42 @@ def masked_matmul(a, b, mask=None):
 
 
 __all__ = [
-    "memory_efficient_attention",
+    # fmha
     "AttentionBias",
     "AttentionMask",
     "AttentionOp",
     "AttentionOpBase",
-    "AttentionOpDispatch",
     "LowerTriangularMask",
     "MemoryEfficientAttentionCutlassFwdFlashBwOp",
     "MemoryEfficientAttentionCutlassOp",
     "MemoryEfficientAttentionFlashAttentionOp",
-    "MemoryEfficientAttentionOp",
-    "MemoryEfficientAttentionTritonFwdFlashBwOp",
+    "MemoryEfficientAttentionCkOp",
+    "MemoryEfficientAttentionSplitKCkOp",
+    "memory_efficient_attention",
     "memory_efficient_attention_backward",
     "memory_efficient_attention_forward",
     "memory_efficient_attention_forward_requires_grad",
+    # indexing
+    "index_select_cat",
+    "scaled_index_add",
+    # ipc
+    "init_ipc",
+    # modpar_layers
+    "ColumnParallelLinear",
+    "RowParallelLinear",
+    # rmsnorm
+    "RMSNorm",
+    # rope_padded
+    "rope_padded",
+    # seqpar
+    "sequence_parallel_leading_matmul",
+    "sequence_parallel_trailing_matmul",
+    # sequence_parallel_fused_ops
+    "fused_allgather_and_anything",
+    "fused_allgather_and_linear",
+    "fused_anything_and_reducescatter",
+    "fused_linear_and_reducescatter",
+    # swiglu_op
     "SwiGLU",
     "SwiGLUEagerOp",
     "SwiGLUFusedOp",
@@ -83,11 +116,16 @@ __all__ = [
     "SwiGLUOpDispatch",
     "SwiGLUPackedFusedOp",
     "swiglu",
-    "TritonFlashAttentionOp",
-    "unbind",
-    "stack_or_none",
+    # tiled_matmul
+    "tiled_matmul",
+    # unbind
     "get_stack_strides",
+    "stack_or_none",
+    "unbind",
+    # sp24
+    "sparsify24",
+    "sparsify24_like",
+    "Sparse24Tensor",
+    # .
     "masked_matmul",
-    "scaled_index_add",
-    "index_select_cat",
 ]

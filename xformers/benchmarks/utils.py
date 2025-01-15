@@ -7,14 +7,16 @@ import argparse
 import contextlib
 import copy
 import csv
+import functools
 import glob
+import itertools
 import logging
 import math
 import os
 import tempfile
 from collections import defaultdict, namedtuple
 from dataclasses import replace
-from typing import Any, Dict, Generator, List, Set, Tuple
+from typing import Any, Dict, Generator, Iterator, List, Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,6 +31,10 @@ sns.set()
 TestCase = namedtuple("TestCase", ["function", "name"])
 
 
+class NotSupportedInputError(Exception):
+    pass
+
+
 _triton_is_available = torch.cuda.is_available()
 if _triton_is_available:
     try:
@@ -38,7 +44,13 @@ if _triton_is_available:
         _triton_is_available = False
 
 
-def pretty_print(results, title, units):
+def get_func_name(fn):
+    if isinstance(fn, functools.partial):
+        return fn.func.__name__
+    return fn.__name__
+
+
+def pretty_print(results, title, units) -> None:
     """Printout the contents of a dict as a human-readable and Markdown compatible array"""
     print(title)
     header = " Units: {:<45}".format(units)
@@ -68,7 +80,8 @@ def pretty_plot(
     results, title, units: str, filename=None, dash_key="", legend_loc="lower right"
 ):
     """Graph out the contents of a dict.
-    Dash key means that if the result label has this key, then it will be displayed with a dash"""
+    Dash key means that if the result label has this key, then it will be displayed with a dash
+    """
 
     if not filename:
         filename = title + ".png"
@@ -139,7 +152,8 @@ if _triton_is_available:
 
 def pretty_barplot(results, title, units: str, filename=None, dash_key=""):
     """Graph out the contents of a dict.
-    Dash key means that if the result label has this key, then it will be displayed with a dash"""
+    Dash key means that if the result label has this key, then it will be displayed with a dash
+    """
 
     if not filename:
         filename = title + ".png"
@@ -253,9 +267,9 @@ def _benchmark_results_from_csv(filename: str) -> List[Tuple[Dict[str, Any], Any
             data.append(
                 (
                     {
-                        META_ALGORITHM: row["algorithm"]
-                        if row["algorithm"] != ""
-                        else None,
+                        META_ALGORITHM: (
+                            row["algorithm"] if row["algorithm"] != "" else None
+                        ),
                     },
                     measurement,
                 )
@@ -272,9 +286,11 @@ def _benchmark_results_to_csv(
             "label": r.task_spec.label,
             "num_threads": r.task_spec.num_threads,
             "algorithm": metadata.get(META_ALGORITHM, ""),
-            "description": r.task_spec.description
-            if r.task_spec.description in BASELINE_DESCRIPTIONS
-            else "",
+            "description": (
+                r.task_spec.description
+                if r.task_spec.description in BASELINE_DESCRIPTIONS
+                else ""
+            ),
             "runtime_us": int(1000 * 1000 * r.mean),
             "mem_use_mb": r.mem_use,
         }
@@ -295,7 +311,7 @@ def _finalize_results(results: List[Tuple[Dict[str, Any], Any]]) -> List[Any]:
     """
     all_algorithms: Set[str] = set()
     all_description: Set[str] = set()
-    for (metadata, r) in results:
+    for metadata, r in results:
         algo = metadata.get(META_ALGORITHM, None)
         if algo is not None:
             all_algorithms.add(algo)
@@ -304,7 +320,7 @@ def _finalize_results(results: List[Tuple[Dict[str, Any], Any]]) -> List[Any]:
     display_descr = len(all_description) > 1
 
     display_results = []
-    for (metadata, r) in results:
+    for metadata, r in results:
         algo = metadata.get(META_ALGORITHM, None)
         if algo is None:
             display_results.append(r)
@@ -343,14 +359,13 @@ def _render_bar_plot(results: List[Any], store_results_folder: str) -> None:
     all_data_run: List[Any] = []
     for key, runtime_values in runtime.items():
         memory_values = memory_usage[key]
-        all_data_mem.append(
-            [key]
-            + [
-                memory_values.get(d, 0)
-                / memory_values.get(all_descriptions[0], math.inf)
-                for d in all_descriptions
-            ]
-        )
+        denom = memory_values.get(all_descriptions[0], math.inf)
+        if denom == 0:
+            all_data_mem.append([key] + [0] * len(all_descriptions))
+        else:
+            all_data_mem.append(
+                [key] + [memory_values.get(d, 0) / denom for d in all_descriptions]
+            )
         all_data_run.append(
             [key]
             + [
@@ -385,12 +400,10 @@ def _render_bar_plot(results: List[Any], store_results_folder: str) -> None:
         print(f"Saved plot: {filename_full}")
 
 
-def benchmark_main_helper(benchmark_fn, cases: List[Dict[str, Any]], **kwargs) -> None:
+def create_argparser() -> argparse.ArgumentParser:
     """
-    Helper function to run benchmarks.
-    Supports loading previous results for comparison, and saving current results to file.
+    Create CLI argument parser.
     """
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--fn", default=None, type=str, help="Only benchmark this function"
@@ -409,16 +422,31 @@ def benchmark_main_helper(benchmark_fn, cases: List[Dict[str, Any]], **kwargs) -
         type=str,
         help="Compare to previously stored benchmarks (coma separated)",
     )
-    parser.add_argument("--omit-baselines", action="store_true")
+    parser.add_argument(
+        "--omit-baselines",
+        action="store_true",
+        help="Do not run the (potentially slow) baselines",
+    )
     parser.add_argument(
         "--quiet",
         action="store_true",
         help="Skip intermediate results and progress bar",
     )
-    args = parser.parse_args()
+    return parser
 
-    if args.fn is not None and args.fn != benchmark_fn.__name__:
-        print(f'Skipping benchmark "{benchmark_fn.__name__}"')
+
+def benchmark_main_helper(
+    benchmark_fn, cases: List[Dict[str, Any]], arg_parser=None, **kwargs
+) -> None:
+    """
+    Helper function to run benchmarks.
+    Supports loading previous results for comparison, and saving current results to file.
+    """
+    arg_parser = arg_parser or create_argparser()
+    args = arg_parser.parse_args()
+
+    if args.fn is not None and args.fn != get_func_name(benchmark_fn):
+        print(f'Skipping benchmark "{get_func_name(benchmark_fn)}"')
         return
     benchmark_run_and_compare(
         benchmark_fn=benchmark_fn,
@@ -441,7 +469,7 @@ def benchmark_run_and_compare(
     quiet: bool = False,
     optimized_label: str = "optimized",
     *,
-    min_run_time: int = 2,
+    min_run_time: float = 2.0,
     atol_s: float = 30e-6,
     rtol: float = 0.05,
 ) -> None:
@@ -455,7 +483,7 @@ def benchmark_run_and_compare(
                 "XFORMERS_BENCHMARKS_CACHE",
                 os.path.join("~", ".cache", "xformers", "benchmarks"),
             ),
-            benchmark_fn.__name__,
+            get_func_name(benchmark_fn),
         )
     )
 
@@ -465,6 +493,7 @@ def benchmark_run_and_compare(
             .replace(" ", "_")
             .replace("-", "_")
             .replace(".", "_")
+            .replace("/", "_")
         )
     except (RuntimeError, AssertionError):  # No GPU
         env = "cpu"
@@ -484,6 +513,8 @@ def benchmark_run_and_compare(
         ):
             loaded = _benchmark_results_from_csv(filename)
             for m, r in loaded:
+                if m.get(META_ALGORITHM) is not None:
+                    m[META_ALGORITHM] = m[META_ALGORITHM].partition("@")[0]
                 if r.task_spec.env == env and SKIP_VANILLA_TASKS_IF_ALREADY_DONE:
                     skip_vanilla_tasks.add(
                         (r.task_spec.sub_label, r.task_spec.num_threads)
@@ -504,7 +535,7 @@ def benchmark_run_and_compare(
             # pbar.write(f"Skipped (NotImplementedError)")
             continue
         except RuntimeError as e:
-            if "CUDA out of memory" not in str(e):
+            if not _is_oom_error(e):
                 raise
             if not quiet:
                 pbar.write("Skipped (OOM)")
@@ -512,31 +543,37 @@ def benchmark_run_and_compare(
 
         name = None
         try:
-            for benchmark_object in benchmarks_generator:
-                is_optimized = (
-                    benchmark_object._task_spec.description not in BASELINE_DESCRIPTIONS
-                )
-                metadata = {}
-                if is_optimized:
-                    metadata[META_ALGORITHM] = benchmark_object._task_spec.description
-                    benchmark_object._task_spec = replace(
-                        benchmark_object._task_spec, description=optimized_label
-                    )
-                elif (
-                    omit_baselines
-                    or (
-                        benchmark_object._task_spec.sub_label,
-                        benchmark_object._task_spec.num_threads,
-                    )
-                    in skip_vanilla_tasks
-                ):
-                    continue
+            torch.cuda.synchronize()
+            torch.cuda.reset_peak_memory_stats()
+            mem_begin = torch.cuda.max_memory_allocated() / 2**20
 
+            for benchmark_object in benchmarks_generator:
                 memory = math.inf
                 try:
+
+                    is_optimized = (
+                        benchmark_object._task_spec.description
+                        not in BASELINE_DESCRIPTIONS
+                    )
+                    metadata = {}
+                    if is_optimized:
+                        metadata[
+                            META_ALGORITHM
+                        ] = benchmark_object._task_spec.description
+                        benchmark_object._task_spec = replace(
+                            benchmark_object._task_spec, description=optimized_label
+                        )
+                    elif (
+                        omit_baselines
+                        or (
+                            benchmark_object._task_spec.sub_label,
+                            benchmark_object._task_spec.num_threads,
+                        )
+                        in skip_vanilla_tasks
+                    ):
+                        continue
+
                     torch.cuda.synchronize()
-                    torch.cuda.reset_peak_memory_stats()
-                    mem_begin = torch.cuda.max_memory_allocated() / 2**20
                     benchmark_object._task_spec = replace(
                         benchmark_object._task_spec, env=env
                     )
@@ -548,8 +585,11 @@ def benchmark_run_and_compare(
                     name = measurement.task_spec.description
                     memory = torch.cuda.max_memory_allocated() / 2**20 - mem_begin
                     measurement.mem_use = memory
+
+                    torch.cuda.reset_peak_memory_stats()
+                    mem_begin = torch.cuda.max_memory_allocated() / 2**20
                 except RuntimeError as e:
-                    if "CUDA out of memory" not in str(e):
+                    if not _is_oom_error(e):
                         raise
                     if not quiet:
                         pbar.write("Skipped (OOM)")
@@ -558,7 +598,7 @@ def benchmark_run_and_compare(
                 if not quiet:
                     pbar.write(f"{name}: memory used: {memory} MB")
         except RuntimeError as e:
-            if "CUDA out of memory" not in str(e):
+            if not _is_oom_error(e):
                 raise
             if not quiet:
                 pbar.write("Skipped (OOM)")
@@ -600,12 +640,18 @@ def benchmark_run_and_compare(
         )
 
 
+def _is_oom_error(e):
+    return isinstance(
+        e, (torch.cuda.OutOfMemoryError, triton.runtime.autotuner.OutOfResources)
+    )
+
+
 def _fail_if_regressions(
     results: List[Any], reference: List[Any], atol_s: float, rtol: float
 ) -> None:
     def get_measurement_id(r):
         return (
-            r[0].get(META_ALGORITHM, ""),
+            r[0].get(META_ALGORITHM, "").partition("@")[0],
             r[1].task_spec.label,
             r[1].task_spec.sub_label,
             r[1].task_spec.env,
@@ -649,7 +695,73 @@ def _fail_if_regressions(
     print(f"  Worse    : {num_worse}")
     if num_unk > 0:
         print(f"  (no ref) : {num_unk}")
+    benchmarks_run = num_better + num_nochange + num_worse
     if num_worse > 1:
         raise RuntimeError("At least one benchmark regressed!")
-    if num_nochange == 0:
+    elif num_unk == benchmarks_run:
         raise RuntimeError("No reference found")
+    elif benchmarks_run == 0:
+        raise RuntimeError("No benchmark was run")
+
+
+def benchmark_main_helper2(
+    name: str,
+    functions,
+    fw: bool = False,
+    bw: bool = False,
+    cuda_graph: bool = True,
+    **kwargs,
+) -> None:
+    assert fw or bw
+
+    def handle_case(**case) -> Iterator[benchmark.Timer]:
+        for k, benchmark_cls in functions.items():
+            try:
+                benchmark_object = benchmark_cls(**case, bw=bw)
+            except NotSupportedInputError:
+                continue
+            label = benchmark_object.label
+            label += "fw" if fw else ""
+            label += "bw" if bw else ""
+
+            def run_one():
+                if fw:
+                    benchmark_object.fw()
+                if bw:
+                    benchmark_object.bw()
+
+            if cuda_graph:
+                run_one()
+                g = torch.cuda.CUDAGraph()
+                with torch.cuda.graph(g):
+                    run_one()
+
+                def run_one():
+                    g.replay()
+
+            yield benchmark.Timer(
+                stmt="fn()",
+                globals={
+                    "fn": run_one,
+                },
+                label=label,
+                description=k,
+                sub_label=benchmark_object.sub_label,
+            )
+
+    handle_case.__name__ = name
+    benchmark_main_helper(handle_case, **kwargs)
+
+
+def product_dict(**kwargs):
+    keys = kwargs.keys()
+    vals = kwargs.values()
+    for instance in itertools.product(*vals):
+        yield dict(zip(keys, instance))
+
+
+DTYPE2STR = {
+    torch.bfloat16: "b16",
+    torch.half: "f16",
+    torch.float32: "f32",
+}
