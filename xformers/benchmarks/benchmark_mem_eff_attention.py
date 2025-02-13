@@ -10,76 +10,19 @@ from functools import partial
 
 import torch
 from torch.utils import benchmark
-from utils import benchmark_main_helper
 
 import xformers.ops
 import xformers.ops.fmha as fmha
+from xformers.attn_bias_utils import create_attn_bias, ref_attention
+from xformers.benchmarks.utils import benchmark_main_helper, create_argparser
 
 torch.backends.cuda.matmul.allow_tf32 = False
-
-
-def create_attn_bias(
-    bias_type,
-    batch_size: int,
-    num_heads: int,
-    q_len: int,
-    kv_len: int,
-    device,
-    dtype,
-    bias_requires_grad: bool = False,
-):
-    NoneType = type(None)
-    if bias_type is NoneType:
-        return None
-    if bias_type is torch.Tensor:
-        attn_bias = (
-            torch.randn((batch_size * num_heads, 1, kv_len), device=device, dtype=dtype)
-            * 3
-        )
-        return attn_bias.expand(batch_size * num_heads, q_len, kv_len)
-    if bias_type is xformers.ops.LowerTriangularMask:
-        return bias_type()
-    assert False, f"Unsupported bias type: {bias_type}"
-
-
-def ref_attention_bmk(q, k, v, attn_bias=None, p=0.0):
-    if isinstance(attn_bias, xformers.ops.AttentionMask):
-        attn_bias = (
-            attn_bias.materialize((q.shape[0], 1, q.shape[1], k.shape[1]))
-            .to(q)
-            .squeeze()
-        )
-    q = q * (1.0 / q.shape[-1] ** 0.5)
-    if attn_bias is None:
-        attn = q @ k.transpose(-2, -1)
-    else:
-        # equivalent to (q @ k.transpose(-2, -1) + m).softmax(-1) @ v
-        # but faster, and is what is used in PyTorch now
-        attn = torch.baddbmm(attn_bias, q, k.transpose(-2, -1))
-    attn = attn.softmax(-1)
-    if p > 0:
-        attn = torch.nn.functional.dropout(attn, p=p)
-    return attn @ v
-
-
-def ref_attention(q, k, v, attn_bias, p=0.0):
-    assert q.ndim == 4
-
-    def T(t):
-        return t.permute((0, 2, 1, 3)).reshape(
-            [t.shape[0] * t.shape[2], t.shape[1], t.shape[3]]
-        )
-
-    out = ref_attention_bmk(T(q), T(k), T(v), attn_bias, p)
-    out = out.reshape([q.shape[0], q.shape[2], q.shape[1], v.shape[3]])
-    return out.permute((0, 2, 1, 3))
-
 
 min_run_time = 0.5
 device = torch.device("cuda")
 
 NUM_THREADS = [1] if device.type == "cuda" else [1, 40]
-SHAPES = [
+VISION_SHAPES = [
     # ViT
     (384, 197, 1, 88),
     (384, 197, 1, 80),
@@ -115,17 +58,22 @@ SHAPES = [
     (256, 4096, 16, 64),
     # Zetta B M H K
     (8, 2048, 20, 128),
-    # LLaMa 70b - mp=8/16
-    *sorted(list(itertools.product([1, 2], [2048, 4096, 8192], [4, 8], [128]))),
-    *sorted(list(itertools.product([16], [128, 512, 1024], [16], [16, 32, 64, 128]))),
 ]
+
+LLM_SHAPES = [
+    # LLaMa 70b - mp=8/16
+    *sorted(itertools.product([1, 2], [2048, 4096, 8192], [4, 8], [128])),
+    *sorted(
+        itertools.product([16], [128, 512, 1024], [16], [16, 32, 64, 128, 160, 256])
+    ),
+]
+
 
 OPS = [
     (xformers.ops.fmha.cutlass.FwOp, xformers.ops.fmha.cutlass.BwOp),
     (xformers.ops.fmha.flash.FwOp, xformers.ops.fmha.flash.BwOp),
-    # TODO: Triton is not stable: it can trigger Illegal Memory Accesses
-    # and its performance varies a lot between runs.
-    # (xformers.ops.fmha.triton.FwOp, xformers.ops.fmha.triton.BwOp),
+    (xformers.ops.fmha.flash3.FwOp, xformers.ops.fmha.flash3.BwOp),
+    (xformers.ops.fmha.ck.FwOp, xformers.ops.fmha.ck.BwOp),
 ]
 
 
@@ -136,60 +84,108 @@ def product_dict(**kwargs):
         yield dict(zip(keys, instance))
 
 
-CASES = list(
-    product_dict(
-        shape=SHAPES,
-        num_threads=NUM_THREADS,
-        dropout_p=[0.0],
-        attn_bias_cfg=[(type(None), False)],
-        dtype=[torch.half],
+VISION_CASES, LLM_CASES = [
+    list(
+        product_dict(
+            shape_q=SHAPES,
+            num_threads=NUM_THREADS,
+            dropout_p=[0.0],
+            attn_bias_cfg=[(type(None), False)],
+            dtype=[torch.half],
+        )
     )
-)
+    for SHAPES in (VISION_SHAPES, LLM_SHAPES)
+]
 
 # Add more cases with some variations
-for c in CASES.copy():
+for c in VISION_CASES.copy():
     c = c.copy()
     c.update(
-        random.Random(str(c["shape"])).choice(
+        random.Random(str(c["shape_q"])).choice(
             [
                 {"dropout_p": 0.3},
                 {"attn_bias_cfg": (torch.Tensor, False)},
                 {"attn_bias_cfg": (torch.Tensor, True)},
-                {"attn_bias_cfg": (xformers.ops.LowerTriangularMask, False)},
                 {"dtype": torch.bfloat16},
                 {"dtype": torch.float},
             ]
         )
     )
-    CASES.append(c)
+    VISION_CASES.append(c)
 
 
-def create_tensors(shape, dtype, requires_grad=False):
-    B, M, H, K = shape
+LLM_CASE_UPDATES = [
+    {"attn_bias_cfg": (torch.Tensor, True)},
+    {"attn_bias_cfg": (xformers.ops.LowerTriangularMask, False)},
+    *[
+        {
+            "attn_bias_cfg": (
+                xformers.ops.fmha.attn_bias.BlockDiagonalCausalWithOffsetPaddedKeysMask,
+                False,
+            ),
+            "Hkv": Hkv,
+            "dtype": torch.bfloat16,
+        }
+        for Hkv in [1, 2]
+    ],
+]
+
+for c in LLM_CASES.copy():
+    for update in LLM_CASE_UPDATES:
+        c = c.copy()
+        c.update(update)
+        LLM_CASES.append(c)
+
+CASES = VISION_CASES + LLM_CASES
+
+
+def create_tensors(shape_q, Hkv, dtype, requires_grad=False, packed=True):
+    stacked_shape = list(shape_q)  # B, M, H, K
+    Hq = shape_q[2]
+    stacked_dim = 2 if packed else 0
+    stacked_shape.insert(stacked_dim, 3)
     qkv = torch.rand(
-        [B, M, 3, H, K], device=device, dtype=dtype, requires_grad=requires_grad
+        stacked_shape, device=device, dtype=dtype, requires_grad=requires_grad
     )
-    q, k, v = xformers.ops.unbind(qkv, 2)
+    q = torch.rand(shape_q, device=device, dtype=dtype, requires_grad=requires_grad)
+    shape_kv = (shape_q[0], shape_q[1], Hkv, shape_q[3])
+    k = (
+        torch.rand(shape_kv, device=device, dtype=dtype, requires_grad=requires_grad)
+        .reshape(shape_q[0], shape_q[1], 1, Hkv, shape_q[3])
+        .expand(shape_q[0], shape_q[1], Hq // Hkv, Hkv, shape_q[3])
+        .reshape(shape_q)
+    )
+    v = (
+        torch.rand(shape_kv, device=device, dtype=dtype, requires_grad=requires_grad)
+        .reshape(shape_q[0], shape_q[1], 1, Hkv, shape_q[3])
+        .expand(shape_q[0], shape_q[1], Hq // Hkv, Hkv, shape_q[3])
+        .reshape(shape_q)
+    )
+
     return qkv, q, k, v
 
 
-def mem_eff_attention_fw(shape, num_threads: int, attn_bias_cfg, dropout_p, dtype):
-    B, M, H, K = shape
-    _, q, k, v = create_tensors(shape, dtype)
+def mem_eff_attention_fw(
+    shape_q,
+    num_threads: int,
+    attn_bias_cfg,
+    dropout_p,
+    dtype,
+    packed=True,
+    Hkv=None,
+):
+    B, M, Hq, K = shape_q
+    Hkv = Hkv or Hq
+    _, q, k, v = create_tensors(
+        shape_q,
+        Hkv,
+        dtype,
+        requires_grad=False,
+        packed=packed,
+    )
     attn_bias_type, attn_bias_requires_grad = attn_bias_cfg
     if attn_bias_requires_grad:
         return
-    bias = create_attn_bias(
-        attn_bias_type,
-        batch_size=B,
-        num_heads=H,
-        q_len=M,
-        kv_len=M,
-        device=device,
-        dtype=dtype,
-        bias_requires_grad=attn_bias_requires_grad,
-    )
-    inp = fmha.Inputs(query=q, key=k, value=v, attn_bias=bias, p=dropout_p)
 
     dtype_str = {
         torch.bfloat16: "b16",
@@ -197,12 +193,34 @@ def mem_eff_attention_fw(shape, num_threads: int, attn_bias_cfg, dropout_p, dtyp
         torch.float: "f32",
     }[dtype]
     sub_label = (
-        f"{dtype_str} {B}-{M}-{H}-{K}, p={dropout_p}, "
+        f"{dtype_str} {B}-{M}-{Hq}-{Hkv}-{K}, p={dropout_p}, "
         f"BiasT={attn_bias_type.__name__}"
     )
 
     has_run = False
     for fw_op, bw_op in OPS:
+        bias = create_attn_bias(
+            attn_bias_type,
+            batch_size=B,
+            num_heads=Hq,
+            num_heads_groups=Hq // Hkv,
+            q_len=M,
+            kv_len=M,
+            dtype=dtype,
+            device=device,
+            requires_grad=attn_bias_requires_grad,
+            fmt="BMHK",
+            op=fw_op,
+        )
+        inp = fmha.Inputs(query=q, key=k, value=v, attn_bias=bias, p=dropout_p)
+        if isinstance(
+            bias,
+            (
+                fmha.attn_bias.BlockDiagonalMask,
+                fmha.attn_bias.BlockDiagonalCausalWithOffsetPaddedKeysMask,
+            ),
+        ):
+            q, k, v = [x.reshape([1, -1, *x.shape[2:]]) for x in [q, k, v]]
         if not fw_op.supports(inp):
             continue
 
@@ -245,22 +263,19 @@ def mem_eff_attention_fw(shape, num_threads: int, attn_bias_cfg, dropout_p, dtyp
     )
 
 
-def mem_eff_attention_bw(shape, num_threads: int, attn_bias_cfg, dropout_p, dtype):
-    B, M, H, K = shape
-    qkv, q, k, v = create_tensors(shape, dtype, requires_grad=True)
+def mem_eff_attention_bw(
+    shape_q, num_threads: int, attn_bias_cfg, dropout_p, dtype, Hkv=None
+):
+    B, M, Hq, K = shape_q
+    Hkv = Hkv or Hq
+    _, q, k, v = create_tensors(
+        shape_q,
+        Hkv,
+        dtype,
+        requires_grad=True,
+    )
 
     attn_bias_type, attn_bias_requires_grad = attn_bias_cfg
-    bias = create_attn_bias(
-        attn_bias_type,
-        batch_size=B,
-        num_heads=H,
-        q_len=M,
-        kv_len=M,
-        device=device,
-        dtype=dtype,
-        bias_requires_grad=attn_bias_requires_grad,
-    )
-    inp = fmha.Inputs(query=q, key=k, value=v, attn_bias=bias, p=dropout_p)
 
     dtype_str = {
         torch.bfloat16: "b16",
@@ -268,12 +283,27 @@ def mem_eff_attention_bw(shape, num_threads: int, attn_bias_cfg, dropout_p, dtyp
         torch.float: "f32",
     }[dtype]
     sub_label = (
-        f"{dtype_str} {B}-{M}-{H}-{K}, p={dropout_p}, "
+        f"{dtype_str} {B}-{M}-{Hq}-{Hkv}-{K}, p={dropout_p}, "
         f"BiasT={attn_bias_type.__name__}, BiasGrad={attn_bias_requires_grad}"
     )
 
     has_run = False
     for fw_op, bw_op in OPS:
+        bias = create_attn_bias(
+            attn_bias_type,
+            batch_size=B,
+            num_heads=Hq,
+            num_heads_groups=Hq // Hkv,
+            q_len=M,
+            kv_len=M,
+            dtype=dtype,
+            device=device,
+            requires_grad=attn_bias_requires_grad,
+            fmt="BMHK",
+            op=bw_op,
+        )
+        inp = fmha.Inputs(query=q, key=k, value=v, attn_bias=bias, p=dropout_p)
+
         if not fw_op.supports(inp) or not bw_op.supports(inp):
             continue
         has_run = True
@@ -310,5 +340,34 @@ def mem_eff_attention_bw(shape, num_threads: int, attn_bias_cfg, dropout_p, dtyp
     )
 
 
-benchmark_main_helper(mem_eff_attention_fw, CASES, min_run_time=min_run_time)
-benchmark_main_helper(mem_eff_attention_bw, CASES, min_run_time=min_run_time)
+def main():
+    arg_parser = create_argparser()
+    arg_parser.add_argument(
+        "--omit-forward",
+        action="store_true",
+        help="Do not run forward benchmarks",
+    )
+    arg_parser.add_argument(
+        "--omit-backward",
+        action="store_true",
+        help="Do not run backward benchmarks",
+    )
+    args = arg_parser.parse_args()
+    if not args.omit_forward:
+        benchmark_main_helper(
+            mem_eff_attention_fw,
+            CASES,
+            arg_parser=arg_parser,
+            min_run_time=min_run_time,
+        )
+    if not args.omit_backward:
+        benchmark_main_helper(
+            mem_eff_attention_bw,
+            CASES,
+            arg_parser=arg_parser,
+            min_run_time=min_run_time,
+        )
+
+
+if __name__ == "__main__":
+    main()
