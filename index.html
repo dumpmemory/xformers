@@ -13,7 +13,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Welcome to xFormers’s documentation! | xFormers 0.0.20 documentation</title>
+  <title>Welcome to xFormers’s documentation! | xFormers 0.0.32 documentation</title>
   
   <script src="_static/js/ga.js"></script>
   <script src="_static/js/redirect.js"></script>
@@ -23,7 +23,7 @@
   
   <link rel="canonical" href="https://facebookresearch.github.io/xformersindex.html" />
   
-  <meta property="og:title" content="Welcome to xFormers’s documentation! | xFormers 0.0.20 documentation">
+  <meta property="og:title" content="Welcome to xFormers’s documentation! | xFormers 0.0.32 documentation">
   <meta name="description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <meta property="og:description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <!--<meta property="og:image" content="https://mmf.sh/img/logo.png">-->
@@ -143,18 +143,6 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="components/index.html">API Reference</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Build models and blocks programatically</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="factory/index.html">Factory</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Tutorials and examples</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">Tutorials</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Some custom parts</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="custom_parts/index.html">Custom parts reference</a></li>
-</ul>
 
         
         
@@ -229,7 +217,7 @@
   <section id="welcome-to-xformers-s-documentation">
 <h1>Welcome to xFormers’s documentation!<a class="headerlink" href="#welcome-to-xformers-s-documentation" title="Permalink to this heading">¶</a></h1>
 <p><em>xFormers</em> is a PyTorch based library which hosts flexible Transformers parts.
-They are interoperable and optimized building blocks, which can be optionally be combined
+They are interoperable and optimized building blocks, which can optionally be combined
 to create some state of the art models.</p>
 <div class="toctree-wrapper compound">
 </div>
@@ -242,61 +230,6 @@ to create some state of the art models.</p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="components/index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="components/ops.html">xFormers optimized operators</a></li>
-<li class="toctree-l2"><a class="reference internal" href="components/attentions.html">Attention mechanisms</a></li>
-<li class="toctree-l2"><a class="reference internal" href="components/feedforward.html">Feedforward mechanisms</a></li>
-<li class="toctree-l2"><a class="reference internal" href="components/position_embedding.html">Position Embeddings</a></li>
-<li class="toctree-l2"><a class="reference internal" href="components/reversible.html">Reversible layer</a></li>
-<li class="toctree-l2"><a class="reference internal" href="components/mha.html">Multi Head Attention</a></li>
-</ul>
-</li>
-</ul>
-</div>
-<div class="line-block">
-<div class="line"><br /></div>
-<div class="line"><br /></div>
-</div>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Build models and blocks programatically</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="factory/index.html">Factory</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="factory/block.html">Block factory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="factory/model.html">Model factory</a></li>
-</ul>
-</li>
-</ul>
-</div>
-<div class="line-block">
-<div class="line"><br /></div>
-<div class="line"><br /></div>
-</div>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Tutorials and examples</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">Tutorials</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/sparse_vit.html">Replace all attentions from an existing ViT model with a sparse equivalent?</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/blocksparse.html">Using BlockSparseAttention</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/aotautograd_nvfuser.html">How to Enable Fused Operations Using AOTAutograd and NVFuser</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/extend_attentions.html">Extend the xFormers parts zoo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/use_attention.html">I’m only interested in testing out the attention mechanisms that are hosted here</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/pytorch_encoder.html">Building an encoder, comparing to PyTorch</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/pytorch_encoder.html#building-full-models">Building full models</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/reversible.html">Using the Reversible block</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/triton.html">Using Triton-based layers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/hierarchical.html">Hierarchical Transformers</a></li>
-</ul>
-</li>
-</ul>
-</div>
-<div class="line-block">
-<div class="line"><br /></div>
-<div class="line"><br /></div>
-</div>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Some custom parts</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="custom_parts/index.html">Custom parts reference</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="custom_parts/index.html#sparse-cuda-kernels">Sparse CUDA kernels</a></li>
-<li class="toctree-l2"><a class="reference internal" href="custom_parts/index.html#triton-parts">Triton parts</a></li>
 </ul>
 </li>
 </ul>

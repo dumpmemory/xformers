@@ -12,7 +12,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>xformers.ops.fmha | xFormers 0.0.20 documentation</title>
+  <title>xformers.ops.fmha | xFormers 0.0.32 documentation</title>
   
   <script src="../../../_static/js/ga.js"></script>
   <script src="../../../_static/js/redirect.js"></script>
@@ -22,7 +22,7 @@
   
   <link rel="canonical" href="https://facebookresearch.github.io/xformers_modules/xformers/ops/fmha.html" />
   
-  <meta property="og:title" content="xformers.ops.fmha | xFormers 0.0.20 documentation">
+  <meta property="og:title" content="xformers.ops.fmha | xFormers 0.0.32 documentation">
   <meta name="description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <meta property="og:description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <!--<meta property="og:image" content="https://mmf.sh/img/logo.png">-->
@@ -141,18 +141,6 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../components/index.html">API Reference</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Build models and blocks programatically</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../factory/index.html">Factory</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Tutorials and examples</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/index.html">Tutorials</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Some custom parts</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../custom_parts/index.html">Custom parts reference</a></li>
-</ul>
 
         
         
@@ -228,40 +216,78 @@
 <span class="c1"># This source code is licensed under the BSD license found in the</span>
 <span class="c1"># LICENSE file in the root directory of this source tree.</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">cutlass</span><span class="p">,</span> <span class="n">flash</span><span class="p">,</span> <span class="n">small_k</span><span class="p">,</span> <span class="n">triton</span>
-<span class="kn">from</span> <span class="nn">.attn_bias</span> <span class="kn">import</span> <span class="n">AttentionBias</span><span class="p">,</span> <span class="n">BlockDiagonalMask</span><span class="p">,</span> <span class="n">LowerTriangularMask</span>
-<span class="kn">from</span> <span class="nn">.common</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">attn_bias</span><span class="p">,</span> <span class="n">ck</span><span class="p">,</span> <span class="n">ck_splitk</span><span class="p">,</span> <span class="n">cutlass</span><span class="p">,</span> <span class="n">flash</span><span class="p">,</span> <span class="n">flash3</span><span class="p">,</span> <span class="n">triton_splitk</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.attn_bias</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AttentionBias</span><span class="p">,</span>
+    <span class="n">BlockDiagonalMask</span><span class="p">,</span>
+    <span class="n">LowerTriangularMask</span><span class="p">,</span>
+    <span class="n">VARLEN_BIASES</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.common</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">AttentionBwOpBase</span><span class="p">,</span>
     <span class="n">AttentionFwOpBase</span><span class="p">,</span>
     <span class="n">AttentionOp</span><span class="p">,</span>
     <span class="n">AttentionOpBase</span><span class="p">,</span>
-    <span class="n">AttentionOpDispatch</span><span class="p">,</span>
+    <span class="n">bmk2bmhk</span><span class="p">,</span>
     <span class="n">Context</span><span class="p">,</span>
     <span class="n">Gradients</span><span class="p">,</span>
     <span class="n">Inputs</span><span class="p">,</span>
-    <span class="n">bmk2bmhk</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">.dispatch</span> <span class="kn">import</span> <span class="n">_dispatch_bw</span><span class="p">,</span> <span class="n">_dispatch_fw</span><span class="p">,</span> <span class="n">_ensure_op_supports_or_raise</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.dispatch</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_dispatch_bw</span><span class="p">,</span>
+    <span class="n">_dispatch_fw</span><span class="p">,</span>
+    <span class="n">_ensure_op_supports_or_raise</span><span class="p">,</span>
+    <span class="n">_get_use_fa3</span><span class="p">,</span>
+    <span class="n">_set_use_fa3</span><span class="p">,</span>
+<span class="p">)</span>
 
 <span class="n">MemoryEfficientAttentionCutlassOp</span> <span class="o">=</span> <span class="p">(</span><span class="n">cutlass</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span> <span class="n">cutlass</span><span class="o">.</span><span class="n">BwOp</span><span class="p">)</span>
 <span class="n">MemoryEfficientAttentionCutlassFwdFlashBwOp</span> <span class="o">=</span> <span class="p">(</span><span class="n">cutlass</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span> <span class="n">flash</span><span class="o">.</span><span class="n">BwOp</span><span class="p">)</span>
-<span class="n">MemoryEfficientAttentionTritonFwdFlashBwOp</span> <span class="o">=</span> <span class="p">(</span><span class="n">triton</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span> <span class="n">flash</span><span class="o">.</span><span class="n">BwOp</span><span class="p">)</span>
 <span class="n">MemoryEfficientAttentionFlashAttentionOp</span> <span class="o">=</span> <span class="p">(</span><span class="n">flash</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span> <span class="n">flash</span><span class="o">.</span><span class="n">BwOp</span><span class="p">)</span>
-<span class="n">MemoryEfficientAttentionOp</span> <span class="o">=</span> <span class="p">(</span><span class="n">small_k</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span> <span class="n">small_k</span><span class="o">.</span><span class="n">BwOp</span><span class="p">)</span>
-<span class="n">TritonFlashAttentionOp</span> <span class="o">=</span> <span class="p">(</span><span class="n">triton</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span> <span class="n">triton</span><span class="o">.</span><span class="n">BwOp</span><span class="p">)</span>
+<span class="n">MemoryEfficientAttentionCkOp</span> <span class="o">=</span> <span class="p">(</span><span class="n">ck</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span> <span class="n">ck</span><span class="o">.</span><span class="n">BwOp</span><span class="p">)</span>
+<span class="n">MemoryEfficientAttentionSplitKCkOp</span> <span class="o">=</span> <span class="p">(</span><span class="n">ck_splitk</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span> <span class="n">ck</span><span class="o">.</span><span class="n">BwOp</span><span class="p">)</span>
 
 
-<span class="k">class</span> <span class="nc">_fMHA</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_deserialize_bias</span><span class="p">(</span><span class="n">attn_bias_ctx</span><span class="p">,</span> <span class="n">attn_bias_tensor</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">attn_bias_tensor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">attn_bias_ctx</span>
+    <span class="k">return</span> <span class="n">attn_bias_tensor</span>
+
+
+<span class="c1"># Note: `torch.compile` only allows custom autograd functions</span>
+<span class="c1"># to accept a subset of types. Therefore we serialize `op` objects</span>
+<span class="c1"># to `str` before entering the function, and unserialize them inside.</span>
+<span class="c1"># See also: https://github.com/pytorch/pytorch/issues/118395</span>
+<span class="n">_OPS_LOOKUP</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">flash</span><span class="o">.</span><span class="n">FwOp</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">flash</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span>
+    <span class="n">flash</span><span class="o">.</span><span class="n">BwOp</span><span class="o">.</span><span class="n">NAME</span><span class="p">:</span> <span class="n">flash</span><span class="o">.</span><span class="n">BwOp</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_serialize_op</span><span class="p">(</span><span class="n">op</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">op</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">op</span><span class="o">.</span><span class="n">NAME</span> <span class="ow">in</span> <span class="n">_OPS_LOOKUP</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">NAME</span>
+    <span class="k">return</span> <span class="n">op</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_unserialize_op</span><span class="p">(</span><span class="n">op</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_OPS_LOOKUP</span><span class="p">[</span><span class="n">op</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">op</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_fMHA</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
     <span class="nd">@staticmethod</span>
     <span class="c1"># type: ignore</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">AttentionOp</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">op_fw</span><span class="p">,</span> <span class="n">op_bw</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
         <span class="n">inp</span> <span class="o">=</span> <span class="n">Inputs</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="n">op_fw</span> <span class="o">=</span> <span class="n">op</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">op</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="n">op_bw</span> <span class="o">=</span> <span class="n">op</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">op</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="n">op_fw</span> <span class="o">=</span> <span class="n">_unserialize_op</span><span class="p">(</span><span class="n">op_fw</span><span class="p">)</span>
+        <span class="n">op_bw</span> <span class="o">=</span> <span class="n">_unserialize_op</span><span class="p">(</span><span class="n">op_bw</span><span class="p">)</span>
 
         <span class="n">out</span><span class="p">,</span> <span class="n">op_ctx</span> <span class="o">=</span> <span class="n">_memory_efficient_attention_forward_requires_grad</span><span class="p">(</span>
             <span class="n">inp</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">op_fw</span>
@@ -292,26 +318,54 @@
                     <span class="sa">f</span><span class="s2">&quot;can only run with op_bw=</span><span class="si">{</span><span class="n">op_ctx</span><span class="o">.</span><span class="n">op_bw</span><span class="o">.</span><span class="n">NAME</span><span class="si">}</span><span class="s2">. Please set op_bw=None.&quot;</span>
                 <span class="p">)</span>
             <span class="n">op_bw</span> <span class="o">=</span> <span class="n">op_ctx</span><span class="o">.</span><span class="n">op_bw</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">op_fw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">op_bw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inp</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">VARLEN_BIASES</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">inp</span><span class="o">.</span><span class="n">attn_bias</span><span class="o">.</span><span class="n">q_seqinfo</span><span class="o">.</span><span class="n">seqstart</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">2</span>
+            <span class="ow">and</span> <span class="n">op_bw</span><span class="o">.</span><span class="n">VARLEN_LSE_PACKED</span> <span class="o">!=</span> <span class="n">op_fw</span><span class="o">.</span><span class="n">VARLEN_LSE_PACKED</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Specified op_bw=</span><span class="si">{</span><span class="n">op_bw</span><span class="o">.</span><span class="n">NAME</span><span class="si">}</span><span class="s2"> is not compatible with the &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;op_fw=</span><span class="si">{</span><span class="n">op_fw</span><span class="o">.</span><span class="n">NAME</span><span class="si">}</span><span class="s2">, because they use different format of logsumexp. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;NOTE: This is new with xFormers 0.0.28&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">op_bw</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">requires_grad</span> <span class="ow">or</span> <span class="n">inp</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">requires_grad</span> <span class="ow">or</span> <span class="n">inp</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">requires_grad</span>
+        <span class="p">):</span>
+            <span class="n">varlen_lse_packed</span> <span class="o">=</span> <span class="n">_detect_lse_packed_or_raise</span><span class="p">(</span><span class="n">op_ctx</span><span class="o">.</span><span class="n">lse</span><span class="p">,</span> <span class="n">inp</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">varlen_lse_packed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">op_fw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="p">(</span>
+                    <span class="n">op_fw</span><span class="o">.</span><span class="n">VARLEN_LSE_PACKED</span> <span class="o">==</span> <span class="n">varlen_lse_packed</span>
+                <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">op_fw</span><span class="o">.</span><span class="n">NAME</span><span class="si">}</span><span class="s2">: wrong value for `VARLEN_LSE_PACKED` ?&quot;</span>
+            <span class="c1"># NOTE: We need to check tensor strides to decide which operator we run in the BW pass.</span>
+            <span class="c1"># Unfortunately, PyTorch only allows to call this function during the FW pass, so</span>
+            <span class="c1"># we decide the operator to use now.</span>
+            <span class="n">op_bw</span> <span class="o">=</span> <span class="n">_dispatch_bw</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">varlen_lse_packed</span><span class="o">=</span><span class="n">varlen_lse_packed</span><span class="p">)</span>
         <span class="n">ctx</span><span class="o">.</span><span class="n">op_fw</span> <span class="o">=</span> <span class="n">op_fw</span>
         <span class="n">ctx</span><span class="o">.</span><span class="n">op_bw</span> <span class="o">=</span> <span class="n">op_bw</span>
         <span class="n">ctx</span><span class="o">.</span><span class="n">p</span> <span class="o">=</span> <span class="n">inp</span><span class="o">.</span><span class="n">p</span>
+        <span class="c1"># This allows to create gradients from a single storage,</span>
+        <span class="c1"># to avoid a &quot;cat&quot; in the BW pass.</span>
+        <span class="c1"># The heuristic is approximative, but:</span>
+        <span class="c1"># (1) It&#39;s not a big issue to create a shared storage</span>
+        <span class="c1"># (2) The heuristic needs to pass `torch.compile`</span>
+        <span class="c1">#  (this is also why we run it in the FW pass, the BW pass is stricter)</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">qkv_share_storage</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">inp</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="ow">and</span> <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">inp</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="ow">and</span> <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">stride</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
+            <span class="o">==</span> <span class="p">(</span><span class="n">inp</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">inp</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="p">)</span>
 
         <span class="n">ctx</span><span class="o">.</span><span class="n">scale</span> <span class="o">=</span> <span class="n">inp</span><span class="o">.</span><span class="n">scale</span>
         <span class="n">ctx</span><span class="o">.</span><span class="n">attn_bias_ctx</span> <span class="o">=</span> <span class="n">attn_bias_ctx</span>
         <span class="n">ctx</span><span class="o">.</span><span class="n">n_args</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">out</span>
+        <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">op_ctx</span><span class="o">.</span><span class="n">lse</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">deserialize_bias</span><span class="p">(</span>
-        <span class="n">attn_bias_ctx</span><span class="p">,</span> <span class="n">attn_bias_tensor</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">attn_bias_tensor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">attn_bias_ctx</span>
-        <span class="k">return</span> <span class="n">attn_bias_tensor</span>
-
-    <span class="nd">@classmethod</span>
     <span class="nd">@torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">once_differentiable</span>
-    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">grad</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">grad_lse</span><span class="p">):</span>
         <span class="c1"># Re-create context</span>
         <span class="n">query</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">lse</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
         <span class="n">attn_bias_tensor</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">attn_bias_tensor</span>
@@ -320,7 +374,7 @@
             <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span>
             <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
             <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
-            <span class="n">attn_bias</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">deserialize_bias</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">attn_bias_ctx</span><span class="p">,</span> <span class="n">attn_bias_tensor</span><span class="p">),</span>
+            <span class="n">attn_bias</span><span class="o">=</span><span class="n">_deserialize_bias</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">attn_bias_ctx</span><span class="p">,</span> <span class="n">attn_bias_tensor</span><span class="p">),</span>
             <span class="n">p</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">p</span><span class="p">,</span>
             <span class="n">scale</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">scale</span><span class="p">,</span>
         <span class="p">)</span>
@@ -328,16 +382,21 @@
             <span class="n">lse</span><span class="o">=</span><span class="n">lse</span><span class="p">,</span>
             <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">,</span>
             <span class="n">rng_state</span><span class="o">=</span><span class="n">rng_state</span><span class="p">,</span>
+            <span class="n">qkv_share_storage</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">qkv_share_storage</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">grads</span> <span class="o">=</span> <span class="n">_memory_efficient_attention_backward</span><span class="p">(</span>
-            <span class="n">ctx</span><span class="o">=</span><span class="n">op_ctx</span><span class="p">,</span> <span class="n">inp</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">grad</span><span class="o">=</span><span class="n">grad</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">op_bw</span>
+            <span class="n">ctx</span><span class="o">=</span><span class="n">op_ctx</span><span class="p">,</span>
+            <span class="n">inp</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span>
+            <span class="n">grad</span><span class="o">=</span><span class="n">grad</span><span class="p">,</span>
+            <span class="n">op</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">op_bw</span><span class="p">,</span>
+            <span class="n">_skip_op_checks</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">grads</span><span class="o">.</span><span class="n">dq</span><span class="p">,</span> <span class="n">grads</span><span class="o">.</span><span class="n">dk</span><span class="p">,</span> <span class="n">grads</span><span class="o">.</span><span class="n">dv</span><span class="p">,</span> <span class="n">grads</span><span class="o">.</span><span class="n">db</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="kc">None</span><span class="p">,)</span> <span class="o">*</span> <span class="p">(</span>
+        <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">grads</span><span class="o">.</span><span class="n">dq</span><span class="p">,</span> <span class="n">grads</span><span class="o">.</span><span class="n">dk</span><span class="p">,</span> <span class="n">grads</span><span class="o">.</span><span class="n">dv</span><span class="p">,</span> <span class="n">grads</span><span class="o">.</span><span class="n">db</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="kc">None</span><span class="p">,)</span> <span class="o">*</span> <span class="p">(</span>
             <span class="n">ctx</span><span class="o">.</span><span class="n">n_args</span> <span class="o">-</span> <span class="mi">2</span>
         <span class="p">)</span>
 
 
-<div class="viewcode-block" id="memory_efficient_attention"><a class="viewcode-back" href="../../../components/ops.html#xformers.ops.memory_efficient_attention">[docs]</a><span class="k">def</span> <span class="nf">memory_efficient_attention</span><span class="p">(</span>
+<div class="viewcode-block" id="memory_efficient_attention"><a class="viewcode-back" href="../../../components/ops.html#xformers.ops.memory_efficient_attention">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">memory_efficient_attention</span><span class="p">(</span>
     <span class="n">query</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">key</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -346,6 +405,7 @@
     <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">op</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AttentionOp</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">output_dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Implements the memory-efficient attention mechanism following</span>
 <span class="sd">    `&quot;Self-Attention Does Not Need O(n^2) Memory&quot; &lt;http://arxiv.org/abs/2112.05682&gt;`_.</span>
@@ -357,6 +417,8 @@
 
 <span class="sd">    - If inputs have dimension 3, it is assumed that the dimensions are ``[B, M, K]`` and ``H=1``</span>
 
+<span class="sd">    - Inputs can also be of dimension 5 with GQA - see note below</span>
+
 <span class="sd">    - Inputs can be non-contiguous - we only require the last dimension&#39;s stride to be 1</span>
 
 
@@ -364,14 +426,18 @@
 
 <span class="sd">    .. code-block:: python</span>
 
-<span class="sd">        scale = 1 / query.shape[-1] ** 0.5</span>
+<span class="sd">        scale = 1.0 / query.shape[-1] ** 0.5</span>
 <span class="sd">        query = query * scale</span>
+<span class="sd">        query = query.transpose(1, 2)</span>
+<span class="sd">        key = key.transpose(1, 2)</span>
+<span class="sd">        value = value.transpose(1, 2)</span>
 <span class="sd">        attn = query @ key.transpose(-2, -1)</span>
 <span class="sd">        if attn_bias is not None:</span>
 <span class="sd">            attn = attn + attn_bias</span>
 <span class="sd">        attn = attn.softmax(-1)</span>
 <span class="sd">        attn = F.dropout(attn, p)</span>
-<span class="sd">        return attn @ value</span>
+<span class="sd">        attn = attn @ value</span>
+<span class="sd">        return attn.transpose(1, 2).contiguous()</span>
 
 <span class="sd">    :Examples:</span>
 
@@ -395,6 +461,34 @@
 
 <span class="sd">        NVIDIA GPUs with compute capability above 6.0 (P100+), datatype ``f16``, ``bf16`` and ``f32``.</span>
 
+<span class="sd">    :EXPERIMENTAL: Using with Multi Query Attention (MQA) and Grouped Query Attention (GQA):</span>
+
+<span class="sd">        MQA/GQA is an experimental feature supported only for the forward pass.</span>
+<span class="sd">        If you have 16 heads in query, and 2 in key/value, you can provide 5-dim tensors</span>
+<span class="sd">        in the ``[B, M, G, H, K]`` format, where ``G`` is the number of head groups (here 2), and</span>
+<span class="sd">        ``H`` is the number of heads per group (8 in the example).</span>
+
+<span class="sd">        Please note that xFormers will not automatically broadcast the inputs, so you will need</span>
+<span class="sd">        to broadcast it manually before calling `memory_efficient_attention`.</span>
+
+<span class="sd">    :GQA/MQA example:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import torch</span>
+<span class="sd">        import xformers.ops as xops</span>
+
+<span class="sd">        B, M, K = 3, 32, 128</span>
+<span class="sd">        kwargs = dict(device=&quot;cuda&quot;, dtype=torch.float16)</span>
+<span class="sd">        q = torch.randn([B, M, 8, K], **kwargs)</span>
+<span class="sd">        k = torch.randn([B, M, 2, K], **kwargs)</span>
+<span class="sd">        v = torch.randn([B, M, 2, K], **kwargs)</span>
+<span class="sd">        out_gqa = xops.memory_efficient_attention(</span>
+<span class="sd">            q.reshape([B, M, 2, 4, K]),</span>
+<span class="sd">            k.reshape([B, M, 2, 1, K]).expand([B, M, 2, 4, K]),</span>
+<span class="sd">            v.reshape([B, M, 2, 1, K]).expand([B, M, 2, 4, K]),</span>
+<span class="sd">        )</span>
+
 <span class="sd">    Raises:</span>
 <span class="sd">        NotImplementedError: if there is no operator available to compute the MHA</span>
 <span class="sd">        ValueError: if inputs are invalid</span>
@@ -416,13 +510,61 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">_memory_efficient_attention</span><span class="p">(</span>
         <span class="n">Inputs</span><span class="p">(</span>
-            <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="n">attn_bias</span><span class="o">=</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span>
+            <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">,</span>
+            <span class="n">attn_bias</span><span class="o">=</span><span class="n">attn_bias</span><span class="p">,</span>
+            <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">,</span>
+            <span class="n">output_dtype</span><span class="o">=</span><span class="n">output_dtype</span><span class="p">,</span>
         <span class="p">),</span>
         <span class="n">op</span><span class="o">=</span><span class="n">op</span><span class="p">,</span>
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="memory_efficient_attention_forward"><a class="viewcode-back" href="../../../components/ops.html#xformers.ops.memory_efficient_attention_forward">[docs]</a><span class="k">def</span> <span class="nf">memory_efficient_attention_forward</span><span class="p">(</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">define</span><span class="p">(</span>
+    <span class="s2">&quot;xformer::memory_efficient_attention_forward&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;(Tensor q, Tensor k, Tensor v, Tensor? b = None, float? p = 0.0, float? scale = None) -&gt; Tensor&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="nd">@torch</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">impl</span><span class="p">(</span><span class="s2">&quot;xformer::memory_efficient_attention_forward&quot;</span><span class="p">,</span> <span class="s2">&quot;Meta&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">memory_efficient_attention_forward_meta</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">q</span><span class="o">.</span><span class="n">new_empty</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+
+<span class="c1"># torch.compile has issue when tracing through op dispatch and ensure_op_support</span>
+<span class="c1"># so provide a wrapper to register it as a custom torch library op.</span>
+<span class="nd">@torch</span><span class="o">.</span><span class="n">library</span><span class="o">.</span><span class="n">impl</span><span class="p">(</span><span class="s2">&quot;xformer::memory_efficient_attention_forward&quot;</span><span class="p">,</span> <span class="s2">&quot;CUDA&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">memory_efficient_attention_forward_torch_wrapper</span><span class="p">(</span>
+    <span class="n">query</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">key</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">attn_bias</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">AttentionBias</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">p</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This provides a torch-compilable wrapper op to</span>
+<span class="sd">    memory_efficient_attention_forward in certain special cases.</span>
+
+<span class="sd">    Note that the following are not supported</span>
+<span class="sd">        - `op` input (?)</span>
+<span class="sd">        - certain attn_bias types (?)</span>
+<span class="sd">        - output_dtype</span>
+<span class="sd">        - K != Kv</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">memory_efficient_attention_forward</span><span class="p">(</span>
+        <span class="n">query</span><span class="p">,</span>
+        <span class="n">key</span><span class="p">,</span>
+        <span class="n">value</span><span class="p">,</span>
+        <span class="n">attn_bias</span><span class="p">,</span>
+        <span class="n">p</span><span class="p">,</span>
+        <span class="n">scale</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="memory_efficient_attention_forward"><a class="viewcode-back" href="../../../components/ops.html#xformers.ops.memory_efficient_attention_forward">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">memory_efficient_attention_forward</span><span class="p">(</span>
     <span class="n">query</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">key</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -431,19 +573,26 @@
     <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">op</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">AttentionFwOpBase</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">output_dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculates the forward pass of :attr:`xformers.ops.memory_efficient_attention`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">_memory_efficient_attention_forward</span><span class="p">(</span>
         <span class="n">Inputs</span><span class="p">(</span>
-            <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="n">attn_bias</span><span class="o">=</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span>
+            <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">,</span>
+            <span class="n">attn_bias</span><span class="o">=</span><span class="n">attn_bias</span><span class="p">,</span>
+            <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">,</span>
+            <span class="n">output_dtype</span><span class="o">=</span><span class="n">output_dtype</span><span class="p">,</span>
         <span class="p">),</span>
         <span class="n">op</span><span class="o">=</span><span class="n">op</span><span class="p">,</span>
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="memory_efficient_attention_forward_requires_grad"><a class="viewcode-back" href="../../../components/ops.html#xformers.ops.memory_efficient_attention_forward_requires_grad">[docs]</a><span class="k">def</span> <span class="nf">memory_efficient_attention_forward_requires_grad</span><span class="p">(</span>
+<div class="viewcode-block" id="memory_efficient_attention_forward_requires_grad"><a class="viewcode-back" href="../../../components/ops.html#xformers.ops.memory_efficient_attention_forward_requires_grad">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">memory_efficient_attention_forward_requires_grad</span><span class="p">(</span>
     <span class="n">query</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">key</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -452,6 +601,7 @@
     <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">op</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">AttentionFwOpBase</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">output_dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Returns a tuple (output, lse), where `lse` can be used to compute the backward pass later.</span>
@@ -465,14 +615,20 @@
         <span class="p">)</span>
     <span class="n">out</span><span class="p">,</span> <span class="n">ctx</span> <span class="o">=</span> <span class="n">_memory_efficient_attention_forward_requires_grad</span><span class="p">(</span>
         <span class="n">Inputs</span><span class="p">(</span>
-            <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="n">attn_bias</span><span class="o">=</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span>
+            <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">,</span>
+            <span class="n">attn_bias</span><span class="o">=</span><span class="n">attn_bias</span><span class="p">,</span>
+            <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">,</span>
+            <span class="n">output_dtype</span><span class="o">=</span><span class="n">output_dtype</span><span class="p">,</span>
         <span class="p">),</span>
         <span class="n">op</span><span class="o">=</span><span class="n">op</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">lse</span></div>
 
 
-<div class="viewcode-block" id="memory_efficient_attention_backward"><a class="viewcode-back" href="../../../components/ops.html#xformers.ops.memory_efficient_attention_backward">[docs]</a><span class="k">def</span> <span class="nf">memory_efficient_attention_backward</span><span class="p">(</span>
+<div class="viewcode-block" id="memory_efficient_attention_backward"><a class="viewcode-back" href="../../../components/ops.html#xformers.ops.memory_efficient_attention_backward">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">memory_efficient_attention_backward</span><span class="p">(</span>
     <span class="n">grad</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">output</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">lse</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -489,7 +645,8 @@
 <span class="sd">    Computes the gradient of the attention.</span>
 <span class="sd">    Returns a tuple (dq, dk, dv)</span>
 <span class="sd">    See :attr:`xformers.ops.memory_efficient_attention` for an explanation of the arguments.</span>
-<span class="sd">    `lse` is the tensor returned by :attr:`xformers.ops.memory_efficient_attention_forward_requires_grad`</span>
+<span class="sd">    `lse` is the tensor returned by</span>
+<span class="sd">    :attr:`xformers.ops.memory_efficient_attention_forward_requires_grad`</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">p</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
@@ -507,7 +664,7 @@
     <span class="k">return</span> <span class="p">(</span><span class="n">gradients</span><span class="o">.</span><span class="n">dq</span><span class="p">,</span> <span class="n">gradients</span><span class="o">.</span><span class="n">dk</span><span class="p">,</span> <span class="n">gradients</span><span class="o">.</span><span class="n">dv</span><span class="p">)</span></div>
 
 
-<span class="k">def</span> <span class="nf">_memory_efficient_attention</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_memory_efficient_attention</span><span class="p">(</span>
     <span class="n">inp</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AttentionOp</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
     <span class="c1"># fast-path that doesn&#39;t require computing the logsumexp for backward computation</span>
@@ -517,18 +674,21 @@
         <span class="p">)</span>
 
     <span class="n">output_shape</span> <span class="o">=</span> <span class="n">inp</span><span class="o">.</span><span class="n">normalize_bmhk</span><span class="p">()</span>
+
+    <span class="n">op_fw</span> <span class="o">=</span> <span class="n">_serialize_op</span><span class="p">(</span><span class="n">op</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">op</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">op_bw</span> <span class="o">=</span> <span class="n">_serialize_op</span><span class="p">(</span><span class="n">op</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">op</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_fMHA</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
-        <span class="n">op</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">scale</span>
-    <span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">output_shape</span><span class="p">)</span>
+        <span class="n">op_fw</span><span class="p">,</span> <span class="n">op_bw</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">scale</span>
+    <span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">output_shape</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_memory_efficient_attention_forward</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_memory_efficient_attention_forward</span><span class="p">(</span>
     <span class="n">inp</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">AttentionFwOpBase</span><span class="p">]]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
     <span class="n">inp</span><span class="o">.</span><span class="n">validate_inputs</span><span class="p">()</span>
     <span class="n">output_shape</span> <span class="o">=</span> <span class="n">inp</span><span class="o">.</span><span class="n">normalize_bmhk</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">op</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">op</span> <span class="o">=</span> <span class="n">_dispatch_fw</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">_dispatch_fw</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">_ensure_op_supports_or_raise</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="s2">&quot;memory_efficient_attention&quot;</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">inp</span><span class="p">)</span>
 
@@ -536,13 +696,13 @@
     <span class="k">return</span> <span class="n">out</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">output_shape</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_memory_efficient_attention_forward_requires_grad</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_memory_efficient_attention_forward_requires_grad</span><span class="p">(</span>
     <span class="n">inp</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">AttentionFwOpBase</span><span class="p">]]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Context</span><span class="p">]:</span>
     <span class="n">inp</span><span class="o">.</span><span class="n">validate_inputs</span><span class="p">()</span>
     <span class="n">output_shape</span> <span class="o">=</span> <span class="n">inp</span><span class="o">.</span><span class="n">normalize_bmhk</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">op</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">op</span> <span class="o">=</span> <span class="n">_dispatch_fw</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">_dispatch_fw</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">_ensure_op_supports_or_raise</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="s2">&quot;memory_efficient_attention&quot;</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">inp</span><span class="p">)</span>
     <span class="n">out</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">needs_gradient</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -550,8 +710,52 @@
     <span class="k">return</span> <span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">output_shape</span><span class="p">),</span> <span class="n">out</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 
 
-<span class="k">def</span> <span class="nf">_memory_efficient_attention_backward</span><span class="p">(</span>
-    <span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">inp</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">,</span> <span class="n">grad</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">AttentionBwOpBase</span><span class="p">]]</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_detect_lse_packed_or_raise</span><span class="p">(</span><span class="n">lse</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">inp</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Detects the LSE format if we&#39;re in a varlen case.</span>
+<span class="sd">    Returns `None` if the format is not relevant (eg not varlen)</span>
+<span class="sd">    Raises an exception if the `lse` has the wrong shape</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">shape_mismatch_err</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;Input tensors have incompatible shapes.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;  lse.shape    : </span><span class="si">{</span><span class="n">lse</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;  query.shape  : </span><span class="si">{</span><span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;  attn_bias    : </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">inp</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span>
+    <span class="c1"># 1. Check ndim &amp; head dimensions</span>
+    <span class="c1"># In any case, LSE should be [*, *GH]</span>
+    <span class="k">if</span> <span class="n">lse</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="p">(</span><span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">or</span> <span class="n">lse</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">shape_mismatch_err</span><span class="p">)</span>
+    <span class="n">lse_bm</span> <span class="o">=</span> <span class="p">[</span><span class="n">lse</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">lse</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+    <span class="n">lse_packed_shape</span> <span class="o">=</span> <span class="p">[</span><span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+    <span class="n">lse_packed</span> <span class="o">=</span> <span class="n">lse_bm</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">lse_packed_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">lse_bm</span> <span class="o">&gt;=</span> <span class="n">lse_packed_shape</span>
+    <span class="c1"># 2. Check correctness for varlen biases with query.shape = [1, M, *GH, K]</span>
+    <span class="c1"># Either [1, *GH, M] (packed)</span>
+    <span class="c1"># Or     [num_seq, *GH, Mq] .. with `Mq &gt;= max_q` (padded)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inp</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">VARLEN_BIASES</span><span class="p">):</span>
+        <span class="n">si</span> <span class="o">=</span> <span class="n">inp</span><span class="o">.</span><span class="n">attn_bias</span><span class="o">.</span><span class="n">q_seqinfo</span>
+        <span class="n">lse_padded_shape</span> <span class="o">=</span> <span class="p">[</span><span class="n">si</span><span class="o">.</span><span class="n">seqstart</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">si</span><span class="o">.</span><span class="n">max_seqlen</span><span class="p">]</span>
+        <span class="n">lse_padded</span> <span class="o">=</span> <span class="n">lse_bm</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">lse_padded_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">lse_bm</span> <span class="o">&gt;=</span> <span class="n">lse_padded_shape</span>
+        <span class="k">if</span> <span class="n">lse_packed</span> <span class="ow">and</span> <span class="n">lse_padded</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="n">lse_packed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">lse_padded</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">shape_mismatch_err</span><span class="p">)</span>
+    <span class="c1"># 3. For non-varlen, shape must be [B, *GH] with query.shape=[B, M, *GH, K]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">lse_packed</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">shape_mismatch_err</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_memory_efficient_attention_backward</span><span class="p">(</span>
+    <span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span>
+    <span class="n">inp</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">,</span>
+    <span class="n">grad</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">AttentionBwOpBase</span><span class="p">]],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">_skip_op_checks</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gradients</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Warning: grad/ctx.out is potentially in BMK format&quot;&quot;&quot;</span>
     <span class="n">inp</span><span class="o">.</span><span class="n">validate_inputs</span><span class="p">()</span>
@@ -566,40 +770,22 @@
         <span class="n">x</span><span class="o">.</span><span class="n">shape</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">(</span><span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">inp</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
     <span class="p">)</span>
     <span class="n">inp</span><span class="o">.</span><span class="n">normalize_bmhk</span><span class="p">()</span>
-    <span class="c1"># LSE has shape [B, H, M] while query has shape [B, M, H, K]</span>
-    <span class="k">if</span> <span class="p">(</span>
-        <span class="n">ctx</span><span class="o">.</span><span class="n">lse</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">3</span>
-        <span class="c1"># Dim 0</span>
-        <span class="ow">or</span> <span class="p">(</span>
-            <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inp</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">BlockDiagonalMask</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">ctx</span><span class="o">.</span><span class="n">lse</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="p">)</span>
-        <span class="ow">or</span> <span class="p">(</span>
-            <span class="nb">isinstance</span><span class="p">(</span><span class="n">inp</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">BlockDiagonalMask</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">ctx</span><span class="o">.</span><span class="n">lse</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">inp</span><span class="o">.</span><span class="n">attn_bias</span><span class="o">.</span><span class="n">q_seqinfo</span><span class="o">.</span><span class="n">seqstart</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span>
-        <span class="p">)</span>
-        <span class="c1"># Dim 1</span>
-        <span class="ow">or</span> <span class="n">ctx</span><span class="o">.</span><span class="n">lse</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
-        <span class="c1"># Dim 2</span>
-        <span class="ow">or</span> <span class="p">(</span>
-            <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inp</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">BlockDiagonalMask</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">ctx</span><span class="o">.</span><span class="n">lse</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="p">)</span>
-    <span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;Input tensors have incompatible shapes.&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;lse.shape    : </span><span class="si">{</span><span class="n">ctx</span><span class="o">.</span><span class="n">lse</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;query.shape  : </span><span class="si">{</span><span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="p">)</span>
+    <span class="n">varlen_lse_packed</span> <span class="o">=</span> <span class="n">_detect_lse_packed_or_raise</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">lse</span><span class="p">,</span> <span class="n">inp</span><span class="p">)</span>
     <span class="n">grad</span> <span class="o">=</span> <span class="n">bmk2bmhk</span><span class="p">(</span><span class="n">grad</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">ctx</span><span class="o">.</span><span class="n">out</span> <span class="o">=</span> <span class="n">bmk2bmhk</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">out</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">op</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">op</span> <span class="o">=</span> <span class="n">_dispatch_bw</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">_dispatch_bw</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">varlen_lse_packed</span><span class="o">=</span><span class="n">varlen_lse_packed</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="n">_skip_op_checks</span><span class="p">:</span>
         <span class="n">_ensure_op_supports_or_raise</span><span class="p">(</span>
             <span class="ne">ValueError</span><span class="p">,</span> <span class="s2">&quot;memory_efficient_attention_backward&quot;</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">inp</span>
         <span class="p">)</span>
+        <span class="k">if</span> <span class="n">varlen_lse_packed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">varlen_lse_packed</span> <span class="o">!=</span> <span class="n">op</span><span class="o">.</span><span class="n">VARLEN_LSE_PACKED</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Wrong LSE format for </span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">NAME</span><span class="si">}</span><span class="s2"> in variable seqlen case. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Double-check that the BW operator </span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">NAME</span><span class="si">}</span><span class="s2"> is compatible &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;with the operator used in the FW pass.&quot;</span>
+            <span class="p">)</span>
 
     <span class="n">grads</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">inp</span><span class="p">,</span> <span class="n">grad</span><span class="p">)</span>
     <span class="n">grads</span><span class="o">.</span><span class="n">dq</span> <span class="o">=</span> <span class="n">grads</span><span class="o">.</span><span class="n">dq</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shape_dq</span><span class="p">)</span>
@@ -608,19 +794,276 @@
     <span class="k">return</span> <span class="n">grads</span>
 
 
+<div class="viewcode-block" id="memory_efficient_attention_partial"><a class="viewcode-back" href="../../../components/ops.html#xformers.ops.memory_efficient_attention_partial">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">memory_efficient_attention_partial</span><span class="p">(</span>
+    <span class="n">query</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">key</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">attn_bias</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">AttentionBias</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">p</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">AttentionOp</span><span class="p">,</span> <span class="n">Type</span><span class="p">[</span><span class="n">AttentionFwOpBase</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">output_dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a tuple (output, lse), where `output` is the attention in the style of</span>
+<span class="sd">    memory_efficient_attention, and  `lse` is extra data, a log-sum-exp.</span>
+<span class="sd">    The outputs of calls to this with the same query and separate keys and values</span>
+<span class="sd">    can be merged with merge_attentions to obtain the attention of the queries</span>
+<span class="sd">    against the disjoint union of the keys and values.</span>
+
+<span class="sd">    Warning: The backward pass of this function is quite restricted. In particular</span>
+<span class="sd">    we assume that in the forward pass the outputs were only used in merge_attention</span>
+<span class="sd">    calculations, and that LSEs weren&#39;t used anywhere except in merge attentions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">p</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;dropout is not supported.&quot;</span><span class="p">)</span>
+    <span class="n">fwop</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">AttentionFwOpBase</span><span class="p">]]</span> <span class="o">=</span> <span class="n">op</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="n">op</span>
+    <span class="n">inp</span> <span class="o">=</span> <span class="n">Inputs</span><span class="p">(</span>
+        <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+        <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+        <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">,</span>
+        <span class="n">attn_bias</span><span class="o">=</span><span class="n">attn_bias</span><span class="p">,</span>
+        <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">,</span>
+        <span class="n">output_dtype</span><span class="o">=</span><span class="n">output_dtype</span><span class="p">,</span>
+        <span class="n">is_partial</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">is_grad</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">is_grad_enabled</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
+        <span class="n">x</span><span class="o">.</span><span class="n">requires_grad</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="n">query</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_grad</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">,</span> <span class="n">ctx</span> <span class="o">=</span> <span class="n">_memory_efficient_attention_forward_requires_grad</span><span class="p">(</span>
+            <span class="n">inp</span><span class="p">,</span>
+            <span class="n">op</span><span class="o">=</span><span class="n">fwop</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">lse</span>
+
+    <span class="k">if</span> <span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;gradients not supported for 5D tensors&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="n">op_fw</span> <span class="o">=</span> <span class="n">_serialize_op</span><span class="p">(</span><span class="n">op</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">op_bw</span> <span class="o">=</span> <span class="n">_serialize_op</span><span class="p">(</span><span class="n">op</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">elif</span> <span class="n">op</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">op_fw</span> <span class="o">=</span> <span class="n">op_bw</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">op_fw</span> <span class="o">=</span> <span class="n">_serialize_op</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+        <span class="n">op_bw</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">_fMHA</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="n">op_fw</span><span class="p">,</span>
+        <span class="n">op_bw</span><span class="p">,</span>
+        <span class="n">inp</span><span class="o">.</span><span class="n">query</span><span class="p">,</span>
+        <span class="n">inp</span><span class="o">.</span><span class="n">key</span><span class="p">,</span>
+        <span class="n">inp</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+        <span class="n">inp</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span>
+        <span class="n">inp</span><span class="o">.</span><span class="n">p</span><span class="p">,</span>
+        <span class="n">inp</span><span class="o">.</span><span class="n">scale</span><span class="p">,</span>
+        <span class="n">inp</span><span class="o">.</span><span class="n">output_dtype</span><span class="p">,</span>
+        <span class="n">inp</span><span class="o">.</span><span class="n">is_partial</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="merge_attentions"><a class="viewcode-back" href="../../../components/ops.html#xformers.ops.merge_attentions">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">merge_attentions</span><span class="p">(</span>
+    <span class="n">attn_split</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]],</span>
+    <span class="n">lse_split</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]],</span>
+    <span class="n">write_lse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">output_dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Combine attention output computed on different parts of K/V for the same</span>
+<span class="sd">    query to get attention on the whole K/V. See https://arxiv.org/abs/2402.05099</span>
+<span class="sd">    The result is equal to</span>
+<span class="sd">        Out_full = (Out1 * exp(LSE1) + Out2 * exp(LSE2) + ...) / (exp(LSE1) + exp(LSE2) + ...)</span>
+<span class="sd">        LSE_full = log(exp(LSE1) + exp(LSE2) + ...)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        attn_split: attention outputs for chunks,</span>
+<span class="sd">            either as a list of tensors of shapes [B, M, G, H, Kq] or [B, M, H, Kq]</span>
+<span class="sd">            or as a single tensor of shape [num_chunks, B, M, G, H, Kq]</span>
+<span class="sd">            or [num_chunks, B, M, H, Kq]</span>
+<span class="sd">        lse_split: LSE for chunks,</span>
+<span class="sd">            either as a list of tensors of shapes [B, G, H, M] or [B, H, M]</span>
+<span class="sd">            or as a single tensor of shape [num_chunks, B, G, H, M] or [num_chunks, B, H, M]</span>
+<span class="sd">        write_lse: whether to output LSE</span>
+<span class="sd">        output_dtype: dtype of attn_out</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        attn_out: [B, M, G, H, Kq] or [B, M, H, Kq]</span>
+<span class="sd">        lse_out: [B, G, H, M] or [B, H, M] if write_lse</span>
+<span class="sd">                 or None otherwise</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">attn_is_concat</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attn_split</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span>
+    <span class="n">lse_is_concat</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lse_split</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span>
+
+    <span class="n">attn_requires_grad</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">attn_split</span><span class="o">.</span><span class="n">requires_grad</span>  <span class="c1"># type: ignore</span>
+        <span class="k">if</span> <span class="n">attn_is_concat</span>
+        <span class="k">else</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">requires_grad</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">attn_split</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">lse_requires_grad</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">lse_split</span><span class="o">.</span><span class="n">requires_grad</span>  <span class="c1"># type: ignore</span>
+        <span class="k">if</span> <span class="n">lse_is_concat</span>
+        <span class="k">else</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">requires_grad</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">lse_split</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">requires_grad</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">is_grad_enabled</span><span class="p">()</span> <span class="ow">and</span> <span class="p">(</span>
+        <span class="n">attn_requires_grad</span> <span class="ow">or</span> <span class="n">lse_requires_grad</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">requires_grad</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">write_lse</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;write_lse should be true if inputs require gradients.&quot;</span><span class="p">)</span>
+
+    <span class="n">concat_path</span> <span class="o">=</span> <span class="n">attn_is_concat</span> <span class="ow">and</span> <span class="n">lse_is_concat</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">requires_grad</span>
+    <span class="k">if</span> <span class="n">concat_path</span><span class="p">:</span>
+        <span class="n">attn_split</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">attn_split</span><span class="p">)</span>
+        <span class="n">lse_split</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">lse_split</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">attn_split</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="n">lse_split</span><span class="o">.</span><span class="n">ndim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Incompatible input shapes: </span><span class="si">{</span><span class="n">attn_split</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s2">, </span><span class="si">{</span><span class="n">lse_split</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">is_bmhk</span> <span class="o">=</span> <span class="n">attn_split</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">5</span>
+        <span class="k">if</span> <span class="n">is_bmhk</span><span class="p">:</span>
+            <span class="n">attn_split</span> <span class="o">=</span> <span class="n">attn_split</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+            <span class="n">lse_split</span> <span class="o">=</span> <span class="n">lse_split</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="n">num_chunks</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Kq</span> <span class="o">=</span> <span class="n">attn_split</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">num_chunks1</span><span class="p">,</span> <span class="n">B1</span><span class="p">,</span> <span class="n">G1</span><span class="p">,</span> <span class="n">H1</span><span class="p">,</span> <span class="n">M1</span> <span class="o">=</span> <span class="n">lse_split</span><span class="o">.</span><span class="n">shape</span>
+        <span class="k">if</span> <span class="n">B</span> <span class="o">!=</span> <span class="n">B1</span> <span class="ow">or</span> <span class="n">G</span> <span class="o">!=</span> <span class="n">G1</span> <span class="ow">or</span> <span class="n">H</span> <span class="o">!=</span> <span class="n">H1</span> <span class="ow">or</span> <span class="n">num_chunks</span> <span class="o">!=</span> <span class="n">num_chunks1</span> <span class="ow">or</span> <span class="n">M</span> <span class="o">!=</span> <span class="n">M</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Incompatible input shapes: </span><span class="si">{</span><span class="n">attn_split</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s2"> </span><span class="si">{</span><span class="n">lse_split</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">B</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">B1</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">G</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">G1</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">H</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">H1</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">num_chunks</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">num_chunks1</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">M</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">M</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">attn_split</span> <span class="o">=</span> <span class="n">attn_split</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="n">lse_split</span> <span class="o">=</span> <span class="n">lse_split</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+
+        <span class="n">device</span> <span class="o">=</span> <span class="n">attn_split</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">attn_dtype</span> <span class="o">=</span> <span class="n">attn_split</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="n">lse_dtype</span> <span class="o">=</span> <span class="n">lse_split</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">attn_is_concat</span><span class="p">:</span>
+            <span class="n">attn_split</span> <span class="o">=</span> <span class="n">attn_split</span><span class="o">.</span><span class="n">unbind</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="k">if</span> <span class="n">lse_is_concat</span><span class="p">:</span>
+            <span class="n">lse_split</span> <span class="o">=</span> <span class="n">lse_split</span><span class="o">.</span><span class="n">unbind</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">num_chunks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">attn_split</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lse_split</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_chunks</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Incompatible number of LSE and attention chunks: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">attn_split</span><span class="p">)</span><span class="si">=}</span><span class="s2">, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">lse_split</span><span class="p">)</span><span class="si">=}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">attn_unsqueezed</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">lse_unsqueezed</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">is_bmhk</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_chunks</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">attn_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="n">lse_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Incompatible input shapes for chunk </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">attn_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s2">, </span><span class="si">{</span><span class="n">lse_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">is_bmhk</span> <span class="o">=</span> <span class="n">attn_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span>
+            <span class="k">if</span> <span class="n">is_bmhk</span><span class="p">:</span>
+                <span class="n">attn_unsqueezed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attn_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+                <span class="n">lse_unsqueezed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lse_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">attn_unsqueezed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attn_split</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="n">lse_unsqueezed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lse_split</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">attn_split</span><span class="p">,</span> <span class="n">lse_split</span> <span class="o">=</span> <span class="n">attn_unsqueezed</span><span class="p">,</span> <span class="n">lse_unsqueezed</span>
+
+        <span class="n">B</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Kq</span> <span class="o">=</span> <span class="n">attn_split</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">B1</span><span class="p">,</span> <span class="n">G1</span><span class="p">,</span> <span class="n">H1</span><span class="p">,</span> <span class="n">M1</span> <span class="o">=</span> <span class="n">lse_split</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
+        <span class="k">if</span> <span class="n">B</span> <span class="o">!=</span> <span class="n">B1</span> <span class="ow">or</span> <span class="n">G</span> <span class="o">!=</span> <span class="n">G1</span> <span class="ow">or</span> <span class="n">H</span> <span class="o">!=</span> <span class="n">H1</span> <span class="ow">or</span> <span class="n">M</span> <span class="o">!=</span> <span class="n">M</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Incompatible input shapes: </span><span class="si">{</span><span class="n">attn_split</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s2">, </span><span class="si">{</span><span class="n">lse_split</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">B</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">B1</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">G</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">G1</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">H</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">H1</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">M</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">M</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_chunks</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">attn_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Kq</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Incompatible input shapes for attention chunk </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">attn_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s2">, </span><span class="si">{</span><span class="p">(</span><span class="n">B</span><span class="p">,</span><span class="w"> </span><span class="n">M</span><span class="p">,</span><span class="w"> </span><span class="n">G</span><span class="p">,</span><span class="w"> </span><span class="n">H</span><span class="p">,</span><span class="w"> </span><span class="n">Kq</span><span class="p">)</span><span class="si">=}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">lse_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">M</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Incompatible input shapes for LSE chunk </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lse_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s2">, </span><span class="si">{</span><span class="p">(</span><span class="n">B</span><span class="p">,</span><span class="w"> </span><span class="n">G</span><span class="p">,</span><span class="w"> </span><span class="n">H</span><span class="p">,</span><span class="w"> </span><span class="n">M</span><span class="p">)</span><span class="si">=}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">attn_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">attn_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>  <span class="c1"># to (B, G, H, M, Kq)</span>
+
+        <span class="n">device</span> <span class="o">=</span> <span class="n">attn_split</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">attn_dtype</span> <span class="o">=</span> <span class="n">attn_split</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="n">lse_dtype</span> <span class="o">=</span> <span class="n">lse_split</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span>
+
+    <span class="k">if</span> <span class="n">concat_path</span><span class="p">:</span>
+        <span class="n">attn_out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="n">B</span><span class="p">,</span>
+            <span class="n">M</span><span class="p">,</span>
+            <span class="n">G</span><span class="p">,</span>
+            <span class="n">H</span><span class="p">,</span>
+            <span class="n">Kq</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">output_dtype</span> <span class="ow">or</span> <span class="n">attn_dtype</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">write_lse</span><span class="p">:</span>
+            <span class="n">lse_out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+                <span class="n">B</span><span class="p">,</span>
+                <span class="n">G</span><span class="p">,</span>
+                <span class="n">H</span><span class="p">,</span>
+                <span class="n">M</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">lse_dtype</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">lse_out</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">triton_splitk</span><span class="o">.</span><span class="n">merge_attentions</span><span class="p">(</span><span class="n">attn_out</span><span class="p">,</span> <span class="n">lse_out</span><span class="p">,</span> <span class="n">attn_split</span><span class="p">,</span> <span class="n">lse_split</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">outs</span> <span class="o">=</span> <span class="n">triton_splitk</span><span class="o">.</span><span class="n">merge_attentions_varargs</span><span class="p">(</span>
+            <span class="n">attn_split</span><span class="p">,</span> <span class="n">lse_split</span><span class="p">,</span> <span class="n">write_lse</span><span class="p">,</span> <span class="n">output_dtype</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Kq</span>
+        <span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">attn_out</span> <span class="o">=</span> <span class="n">outs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">lse_out</span> <span class="o">=</span> <span class="n">outs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">write_lse</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">is_bmhk</span><span class="p">:</span>
+        <span class="n">attn_out</span> <span class="o">=</span> <span class="n">attn_out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">lse_out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">lse_out</span> <span class="o">=</span> <span class="n">lse_out</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">attn_out</span><span class="p">,</span> <span class="n">lse_out</span></div>
+
+
+<span class="n">ALL_FW_OPS</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">AttentionFwOpBase</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">cutlass</span><span class="o">.</span><span class="n">FwOp</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">cuda</span> <span class="k">else</span> <span class="n">ck</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span>
+    <span class="n">flash</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span>
+    <span class="n">flash3</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span>
+    <span class="n">triton_splitk</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">ALL_BW_OPS</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">AttentionBwOpBase</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">cutlass</span><span class="o">.</span><span class="n">BwOp</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">cuda</span> <span class="k">else</span> <span class="n">ck</span><span class="o">.</span><span class="n">BwOp</span><span class="p">,</span>
+    <span class="n">flash</span><span class="o">.</span><span class="n">BwOp</span><span class="p">,</span>
+    <span class="n">flash3</span><span class="o">.</span><span class="n">BwOp</span><span class="p">,</span>
+<span class="p">]</span>
+
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;AttentionBias&quot;</span><span class="p">,</span>
     <span class="s2">&quot;AttentionOp&quot;</span><span class="p">,</span>
     <span class="s2">&quot;AttentionOpBase&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;AttentionOpDispatch&quot;</span><span class="p">,</span>
     <span class="s2">&quot;LowerTriangularMask&quot;</span><span class="p">,</span>
     <span class="s2">&quot;MemoryEfficientAttentionCutlassFwdFlashBwOp&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;MemoryEfficientAttentionTritonFwdFlashBwOp&quot;</span><span class="p">,</span>
     <span class="s2">&quot;MemoryEfficientAttentionCutlassOp&quot;</span><span class="p">,</span>
     <span class="s2">&quot;MemoryEfficientAttentionFlashAttentionOp&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;MemoryEfficientAttentionOp&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;TritonFlashAttentionOp&quot;</span><span class="p">,</span>
     <span class="s2">&quot;memory_efficient_attention&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MemoryEfficientAttentionCkOp&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MemoryEfficientAttentionSplitKCkOp&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ALL_FW_OPS&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ALL_BW_OPS&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;attn_bias&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;_get_use_fa3&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;_set_use_fa3&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;BlockDiagonalMask&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 </pre></div>
 

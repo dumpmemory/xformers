@@ -12,7 +12,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>xformers.ops.fmha.common | xFormers 0.0.20 documentation</title>
+  <title>xformers.ops.fmha.common | xFormers 0.0.32 documentation</title>
   
   <script src="../../../../_static/js/ga.js"></script>
   <script src="../../../../_static/js/redirect.js"></script>
@@ -22,7 +22,7 @@
   
   <link rel="canonical" href="https://facebookresearch.github.io/xformers_modules/xformers/ops/fmha/common.html" />
   
-  <meta property="og:title" content="xformers.ops.fmha.common | xFormers 0.0.20 documentation">
+  <meta property="og:title" content="xformers.ops.fmha.common | xFormers 0.0.32 documentation">
   <meta name="description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <meta property="og:description" content="API docs for xFormers. xFormers is a PyTorch extension library for composable and optimized Transformer blocks.">
   <!--<meta property="og:image" content="https://mmf.sh/img/logo.png">-->
@@ -141,18 +141,6 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../components/index.html">API Reference</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Build models and blocks programatically</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../factory/index.html">Factory</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Tutorials and examples</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/index.html">Tutorials</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Some custom parts</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../custom_parts/index.html">Custom parts reference</a></li>
-</ul>
 
         
         
@@ -230,18 +218,39 @@
 <span class="c1"># This source code is licensed under the BSD license found in the</span>
 <span class="c1"># LICENSE file in the root directory of this source tree.</span>
 
-<span class="kn">import</span> <span class="nn">math</span>
-<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Set</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+<span class="p">)</span>
 
-<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-<span class="kn">from</span> <span class="nn">..._cpp_lib</span> <span class="kn">import</span> <span class="n">_built_with_cuda</span>
-<span class="kn">from</span> <span class="nn">..common</span> <span class="kn">import</span> <span class="n">BaseOperator</span>
-<span class="kn">from</span> <span class="nn">.attn_bias</span> <span class="kn">import</span> <span class="n">AttentionBias</span><span class="p">,</span> <span class="n">BlockDiagonalMask</span><span class="p">,</span> <span class="n">LowerTriangularMask</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..._cpp_lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">_built_with_cuda</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..common</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseOperator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.attn_bias</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AttentionBias</span><span class="p">,</span>
+    <span class="n">BlockDiagonalGappyKeysMask</span><span class="p">,</span>
+    <span class="n">BlockDiagonalMask</span><span class="p">,</span>
+    <span class="n">BlockDiagonalPaddedKeysMask</span><span class="p">,</span>
+    <span class="n">LowerTriangularMask</span><span class="p">,</span>
+    <span class="n">LowerTriangularMaskWithTensorBias</span><span class="p">,</span>
+    <span class="n">PagedBlockDiagonalGappyKeysMask</span><span class="p">,</span>
+    <span class="n">PagedBlockDiagonalPaddedKeysMask</span><span class="p">,</span>
+<span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_is_bias_type_supported_in_BMK</span><span class="p">(</span><span class="n">attn_bias_type</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_bias_type_supported_in_BMK</span><span class="p">(</span><span class="n">attn_bias_type</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
     <span class="c1"># NoneType</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">attn_bias_type</span><span class="p">):</span>
         <span class="k">return</span> <span class="kc">True</span>
@@ -250,8 +259,105 @@
     <span class="k">return</span> <span class="kc">False</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_attn_bias_apply</span><span class="p">(</span>
+    <span class="n">attn_bias</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">AttentionBias</span><span class="p">]],</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">AttentionBias</span><span class="p">]]:</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">op</span><span class="p">(</span><span class="n">attn_bias</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">LowerTriangularMaskWithTensorBias</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">LowerTriangularMaskWithTensorBias</span><span class="p">(</span><span class="n">op</span><span class="p">(</span><span class="n">attn_bias</span><span class="o">.</span><span class="n">_bias</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">attn_bias</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ScaledTensor</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;scale&quot;</span><span class="p">,</span> <span class="s2">&quot;dequant_func&quot;</span><span class="p">,</span> <span class="s2">&quot;original_dtype&quot;</span><span class="p">]</span>
+
+    <span class="c1"># Disabling custom torch function handling for this class</span>
+    <span class="n">__torch_function__</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_disabled_torch_function_impl</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">dequant_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">original_dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">require_grad</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ScaledTensor&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates a new ScaledTensor subclass instance.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        - data: The underlying quantized tensor (e.g., int8, int4).</span>
+<span class="sd">        - scale: The scale tensor or scalar to be used for dequantization.</span>
+<span class="sd">        - dequant_func: A callable that applies dequantization, which takes both the data and scale as input.</span>
+<span class="sd">        - original_dtype: The data type before quantization (e.g., float32, float16).</span>
+<span class="sd">        - require_grad: Whether or not to track gradients (default: False for inference use).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Use _make_subclass to create a new ScaledTensor instance, which is a subclass of torch.Tensor.</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="o">.</span><span class="n">_make_subclass</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">require_grad</span><span class="o">=</span><span class="n">require_grad</span><span class="p">)</span>
+
+        <span class="c1"># Store the dequantization scale and function as attributes.</span>
+        <span class="n">instance</span><span class="o">.</span><span class="n">scale</span> <span class="o">=</span> <span class="n">scale</span>  <span class="c1"># type: ignore</span>
+        <span class="n">instance</span><span class="o">.</span><span class="n">dequant_func</span> <span class="o">=</span> <span class="n">dequant_func</span>  <span class="c1"># type: ignore</span>
+
+        <span class="c1"># Store the original data type of the tensor, so we can cast it back after dequantization.</span>
+        <span class="n">instance</span><span class="o">.</span><span class="n">original_dtype</span> <span class="o">=</span> <span class="n">original_dtype</span>  <span class="c1"># type: ignore</span>
+
+        <span class="c1"># Return the new instance of ScaledTensor.</span>
+        <span class="k">return</span> <span class="n">instance</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">dequantize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Applies the custom dequantization function provided at the tensor&#39;s creation.</span>
+<span class="sd">        After dequantization, the data is cast back to its original data type.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Explicitly create a new torch.Tensor to ensure the return type is torch.Tensor, not ScaledTensor.</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">float</span><span class="p">())</span>
+
+        <span class="c1"># Call the dequantization function, passing in the data and the scale.</span>
+        <span class="n">dequantized_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dequant_func</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+
+        <span class="c1"># Cast the dequantized data back to the original data type.</span>
+        <span class="k">return</span> <span class="n">dequantized_data</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">original_dtype</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">unpack</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Unpacks the ScaledTensor by returning its data and scale as a tuple.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">        - A tuple of (data, scale), both of which are torch.Tensor objects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span>  <span class="c1"># type: ignore</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Custom string representation for ScaledTensor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;ScaledTensor(data=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="si">}</span><span class="s2">, scale=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="si">}</span><span class="s2">, original_dtype=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">original_dtype</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">pack_fp8_tensorwise_per_head</span><span class="p">(</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">original_dtype</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ScaledTensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Pack a tensor into a tensorwise fp8 ScaledTensor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">scale</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">dequant_func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">scale</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="n">scale</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">ScaledTensor</span><span class="p">(</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">x</span><span class="p">,</span>
+        <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">,</span>
+        <span class="n">dequant_func</span><span class="o">=</span><span class="n">dequant_func</span><span class="p">,</span>
+        <span class="n">original_dtype</span><span class="o">=</span><span class="n">original_dtype</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
 <span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">Inputs</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Inputs</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Stores inputs to the `memory_efficient_attention` operators</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -262,43 +368,95 @@
     <span class="n">attn_bias</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">AttentionBias</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">p</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
     <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">output_dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">is_partial</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">device</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">scale_float</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scale_float</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span>
 
-    <span class="k">def</span> <span class="nf">normalize_bmhk</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_qkv_in_bmghk</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">[:,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">[:,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">[:,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+            <span class="p">)</span>
+        <span class="k">assert</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">normalize_bmhk</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Invalid shape for query: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">. &quot;</span>
-                <span class="s2">&quot;Expected shape [batch, seqlen, num_heads, K], or [batch, seqlen, K].&quot;</span>
+                <span class="s2">&quot;Expected shape [batch, seqlen, head_groups, num_heads_per_group, K]&quot;</span>
+                <span class="s2">&quot;, [batch, seqlen, num_heads, K], or [batch, seqlen, K].&quot;</span>
             <span class="p">)</span>
-        <span class="n">output_shape</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">:</span>
+            <span class="c1"># Quantized K/V case, in which the last dims of Q and K are different.</span>
+            <span class="c1"># NB we currently don&#39;t have any implementations for quantized KV with</span>
+            <span class="c1"># SUPPORTS_DIFFERENT_VALUE_EMBED.</span>
+            <span class="n">output_shape</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">output_shape</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],)</span>
         <span class="c1"># Convert from legacy format</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">attn_bias</span> <span class="o">=</span> <span class="n">_attn_bias_apply</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">partial</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="p">)</span>
         <span class="k">return</span> <span class="n">output_shape</span>
 
-    <span class="k">def</span> <span class="nf">validate_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">qkv</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">qkv</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">qkv</span>
+        <span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Query/Key/Value should all have BMHK or BMK shape.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Query/Key/Value should all have BMGHK, BMHK or BMK shape.</span><span class="se">\n</span><span class="s2">&quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;  query.shape: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;  key.shape  : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;  value.shape: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">device</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">qkv</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Query/Key/Value should all be on the same device&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">dtype</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">qkv</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span>
+            <span class="p">(</span>
+                <span class="n">BlockDiagonalMask</span><span class="p">,</span>
+                <span class="n">BlockDiagonalPaddedKeysMask</span><span class="p">,</span>
+                <span class="n">PagedBlockDiagonalPaddedKeysMask</span><span class="p">,</span>
+                <span class="n">BlockDiagonalGappyKeysMask</span><span class="p">,</span>
+                <span class="n">PagedBlockDiagonalGappyKeysMask</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">):</span>
+            <span class="n">bias_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">attn_bias</span><span class="o">.</span><span class="n">q_seqinfo</span><span class="o">.</span><span class="n">seqstart</span><span class="o">.</span><span class="n">device</span>
+            <span class="k">if</span> <span class="n">bias_device</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">device</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Attention bias and Query/Key/Value should be on the same device</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;  query.device: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;  attn_bias   : </span><span class="si">{</span><span class="n">bias_device</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+        <span class="n">quantized_dtypes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">int32</span>
+        <span class="n">non_quantized_dtypes</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">dtype</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">qkv</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">quantized_dtypes</span> <span class="ow">or</span> <span class="n">non_quantized_dtypes</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Query/Key/Value should all have the same dtype</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;Query/Key/Value should either all have the same dtype, or &quot;</span>
+                <span class="s2">&quot;(in the quantized case) Key/Value should have dtype torch.int32</span><span class="se">\n</span><span class="s2">&quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;  query.dtype: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;  key.dtype  : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;  value.dtype: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -313,6 +471,25 @@
                 <span class="sa">f</span><span class="s2">&quot;Please provide inputs in BMHK format rather &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;than BMK when using bias type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">`&quot;</span>
             <span class="p">)</span>
+        <span class="n">attn_bias_t</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">LowerTriangularMaskWithTensorBias</span><span class="p">):</span>
+            <span class="n">attn_bias_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">attn_bias</span><span class="o">.</span><span class="n">_bias</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="n">attn_bias_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">attn_bias</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span> <span class="ow">and</span> <span class="n">attn_bias_t</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">expected_shape</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">attn_bias_t</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">expected_shape</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Invalid shape for attention bias: </span><span class="si">{</span><span class="n">attn_bias_t</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> (expected </span><span class="si">{</span><span class="n">expected_shape</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;  query.shape: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;  key.shape  : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;  value.shape: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">BlockDiagonalMask</span><span class="p">):</span>
             <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">qkv</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -323,16 +500,73 @@
                 <span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">&lt;</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">&gt;</span> <span class="mf">1.0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid dropout probability: p=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># Check that shapes match between inputs</span>
+        <span class="n">B</span><span class="p">,</span> <span class="n">Mq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">K</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">B</span><span class="p">,</span> <span class="n">Mkv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">Kv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">quantized_kv_cache</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">int32</span>
+        <span class="n">key_embed_dim</span> <span class="o">=</span> <span class="n">Kv</span> <span class="k">if</span> <span class="n">quantized_kv_cache</span> <span class="k">else</span> <span class="n">K</span>
+
+        <span class="n">valid_shapes</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>  <span class="c1"># BMK</span>
+            <span class="n">valid_shapes</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Mq</span><span class="p">,</span> <span class="n">K</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Mkv</span><span class="p">,</span> <span class="n">K</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Mkv</span><span class="p">,</span> <span class="n">Kv</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">H</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>  <span class="c1"># BMHK</span>
+            <span class="n">valid_shapes</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Mq</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">K</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Mkv</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">key_embed_dim</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Mkv</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Kv</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">G</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>  <span class="c1"># BMNHK</span>
+            <span class="n">valid_shapes</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Mq</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">K</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Mkv</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">key_embed_dim</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Mkv</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Kv</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">valid_shapes</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Incompatible shapes for attention inputs:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  query.shape: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  key.shape  : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  value.shape: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;HINT: We don&#39;t support broadcasting, please use `expand` &quot;</span>
+                <span class="s2">&quot;yourself before calling `memory_efficient_attention` if you need to&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dtype</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_partial</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dtype</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nbytes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Number of bytes in the input, not counting the attention bias.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">.</span><span class="n">untyped_storage</span><span class="p">()</span><span class="o">.</span><span class="n">nbytes</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">]</span>
+        <span class="p">)</span>
 
 
 <span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">Context</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Context</span><span class="p">:</span>
     <span class="n">lse</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
     <span class="n">out</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="c1"># NOTE: If `rng_state` is set, `op_bw` should be set as well</span>
+    <span class="c1"># as the randomness is backend-dependant</span>
     <span class="n">op_bw</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="s2">&quot;AttentionBwOpBase&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">rng_state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">rng_state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">qkv_share_storage</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 
-    <span class="k">def</span> <span class="nf">get_padded_lse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pad_to</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">force_pad_inf</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_padded_lse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pad_to</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">force_pad_inf</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
         <span class="n">pad_amount</span> <span class="o">=</span> <span class="p">(</span><span class="n">pad_to</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lse</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">%</span> <span class="n">pad_to</span><span class="p">))</span> <span class="o">%</span> <span class="n">pad_to</span>
         <span class="n">lse</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lse</span>
         <span class="k">if</span> <span class="n">pad_amount</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -346,7 +580,7 @@
 
 
 <span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">Gradients</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Gradients</span><span class="p">:</span>
     <span class="n">dq</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
     <span class="n">dk</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
     <span class="n">dv</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
@@ -354,7 +588,7 @@
     <span class="n">db</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
 
-<div class="viewcode-block" id="AttentionOpBase"><a class="viewcode-back" href="../../../../components/ops.html#xformers.ops.AttentionOpBase">[docs]</a><span class="k">class</span> <span class="nc">AttentionOpBase</span><span class="p">(</span><span class="n">BaseOperator</span><span class="p">):</span>
+<div class="viewcode-block" id="AttentionOpBase"><a class="viewcode-back" href="../../../../components/ops.html#xformers.ops.AttentionOpBase">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">AttentionOpBase</span><span class="p">(</span><span class="n">BaseOperator</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for any attention operator in xFormers</span>
 
 <span class="sd">    See:</span>
@@ -365,8 +599,6 @@
 <span class="sd">    - :attr:`xformers.ops.fmha.flash.BwOp`</span>
 <span class="sd">    - :attr:`xformers.ops.fmha.triton.FwOp`</span>
 <span class="sd">    - :attr:`xformers.ops.fmha.triton.BwOp`</span>
-<span class="sd">    - :attr:`xformers.ops.fmha.small_k.FwOp`</span>
-<span class="sd">    - :attr:`xformers.ops.fmha.small_k.BwOp`</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">OPERATOR</span><span class="p">:</span> <span class="n">Any</span>
@@ -374,46 +606,86 @@
     <span class="n">CUDA_MINIMUM_COMPUTE_CAPABILITY</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
     <span class="n">SUPPORTED_DTYPES</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span>
     <span class="n">SUPPORTED_MAX_K</span><span class="p">:</span> <span class="nb">float</span>
-    <span class="n">SUPPORTED_ATTN_BIAS_TYPES</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">)}</span>
+    <span class="n">SUPPORTED_MIN_K</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">SUPPORTED_ATTN_BIAS_TYPES</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">),)</span>
     <span class="n">SUPPORTS_DROPOUT</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">SUPPORTS_CUSTOM_SCALE</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">SUPPORTS_DIFFERENT_VALUE_EMBED</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">SUPPORTS_OUTPUT_DTYPE</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">SUPPORTS_PARTIAL</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">IS_DETERMINISTIC</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">SUPPORTS_BMGHK</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">NAME</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">OPERATOR_CATEGORY</span> <span class="o">=</span> <span class="s2">&quot;memory_efficient_attention&quot;</span>
+    <span class="c1"># Format for the LSE computed in the FW pass, and accepted in the BW pass,</span>
+    <span class="c1"># for BlockDiagonalMask and children.</span>
+    <span class="c1"># When using a varlen bias, both the FW and BW operators must have the</span>
+    <span class="c1"># same value for `VARLEN_LSE_PACKED`</span>
+    <span class="n">VARLEN_LSE_PACKED</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="n">_TEST_BATCH_SIZES</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">300</span><span class="p">]</span>
     <span class="n">_TEST_K</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">32</span><span class="p">,</span> <span class="mi">128</span><span class="p">]</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">supports</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">supports</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="k">return</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">not_supported_reasons</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
 
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">shape_not_supported_reasons</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">Mq</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">Mkv</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">K</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">Kv</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="n">reasons</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTS_DIFFERENT_VALUE_EMBED</span> <span class="ow">and</span> <span class="n">K</span> <span class="o">!=</span> <span class="n">Kv</span><span class="p">:</span>
+            <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;query.shape[-1] != value.shape[-1]&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">max</span><span class="p">(</span><span class="n">K</span><span class="p">,</span> <span class="n">Kv</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_MAX_K</span><span class="p">:</span>
+            <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;max(query.shape[-1], value.shape[-1]) &gt; </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_MAX_K</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">min</span><span class="p">(</span><span class="n">K</span><span class="p">,</span> <span class="n">Kv</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_MIN_K</span><span class="p">:</span>
+            <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;min(query.shape[-1], value.shape[-1]) &lt; </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_MIN_K</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">reasons</span>
+
 <div class="viewcode-block" id="AttentionOpBase.not_supported_reasons"><a class="viewcode-back" href="../../../../components/ops.html#xformers.ops.AttentionOpBase.not_supported_reasons">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">not_supported_reasons</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">not_supported_reasons</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns a list of reasons why this is not supported.</span>
 <span class="sd">        The kernel can run these inputs only if the returned list is empty</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">reasons</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">query_shape</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">reasons</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">shape_not_supported_reasons</span><span class="p">(</span>
+            <span class="n">Mq</span><span class="o">=</span><span class="n">query_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">Mkv</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">key</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">K</span><span class="o">=</span><span class="n">query_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">Kv</span><span class="o">=</span><span class="n">query_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">int32</span> <span class="k">else</span> <span class="n">d</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+        <span class="p">)</span>
         <span class="n">device_type</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">type</span>
         <span class="n">dtype</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">dtype</span>
         <span class="k">if</span> <span class="n">device_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_DEVICES</span><span class="p">:</span>
             <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;device=</span><span class="si">{</span><span class="n">device_type</span><span class="si">}</span><span class="s2"> (supported: </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_DEVICES</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">device_type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_built_with_cuda</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">device_type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">_built_with_cuda</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">hip</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="p">):</span>
             <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;xFormers wasn&#39;t build with CUDA support&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">device_type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span> <span class="ow">and</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">hip</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">device_capability</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">get_device_capability</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">device_capability</span> <span class="o">&lt;</span> <span class="bp">cls</span><span class="o">.</span><span class="n">CUDA_MINIMUM_COMPUTE_CAPABILITY</span><span class="p">:</span>
+                <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;requires device with capability &gt; </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">CUDA_MINIMUM_COMPUTE_CAPABILITY</span><span class="si">}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;but your GPU has capability </span><span class="si">{</span><span class="n">device_capability</span><span class="si">}</span><span class="s2"> (too old)&quot;</span>
+                <span class="p">)</span>
         <span class="k">if</span> <span class="n">dtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_DTYPES</span><span class="p">:</span>
             <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;dtype=</span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> (supported: </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_DTYPES</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTS_DIFFERENT_VALUE_EMBED</span>
-            <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">d</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-        <span class="p">):</span>
-            <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;query.shape[-1] != value.shape[-1]&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">max</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">d</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">&gt;</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_MAX_K</span><span class="p">:</span>
-            <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;max(query.shape[-1] != value.shape[-1]) &gt; </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_MAX_K</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
         <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_ATTN_BIAS_TYPES</span><span class="p">:</span>
             <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;attn_bias type is </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTS_OUTPUT_DTYPE</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">output_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">output_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">dtype</span><span class="p">:</span>
+                <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Custom output dtype not supported&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">is_partial</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTS_PARTIAL</span><span class="p">:</span>
+            <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Partial attention not supported&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">p</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTS_DROPOUT</span><span class="p">:</span>
             <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;dropout &gt; 0.0&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">scale</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTS_CUSTOM_SCALE</span><span class="p">:</span>
@@ -428,12 +700,18 @@
             <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;bf16 is only supported on A100+ GPUs&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
             <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="s2">&quot;Operator wasn&#39;t built - see `python -m xformers.info` for more info&quot;</span>
+                <span class="s2">&quot;operator wasn&#39;t built - see `python -m xformers.info` for more info&quot;</span>
             <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">IS_DETERMINISTIC</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">are_deterministic_algorithms_enabled</span><span class="p">():</span>
+            <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="s2">&quot;operator is non-deterministic, but `torch.use_deterministic_algorithms` is set&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTS_BMGHK</span> <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+            <span class="n">reasons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;operator does not support BMGHK format&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">reasons</span></div></div>
 
 
-<span class="k">class</span> <span class="nc">AttentionFwOpBase</span><span class="p">(</span><span class="n">AttentionOpBase</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AttentionFwOpBase</span><span class="p">(</span><span class="n">AttentionOpBase</span><span class="p">):</span>
     <span class="n">ERROR_ATOL</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
         <span class="n">torch</span><span class="o">.</span><span class="n">float</span><span class="p">:</span> <span class="mf">3e-4</span><span class="p">,</span>
         <span class="n">torch</span><span class="o">.</span><span class="n">half</span><span class="p">:</span> <span class="mf">4e-3</span><span class="p">,</span>
@@ -446,60 +724,22 @@
     <span class="p">}</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span> <span class="n">inp</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">,</span> <span class="n">needs_gradient</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Context</span><span class="p">]]:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">attn_operator_flop</span><span class="p">(</span>
-        <span class="bp">cls</span><span class="p">,</span>
-        <span class="n">query</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">key</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">causal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">seqstart_k</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">seqstart_q</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Computes total flops for the attention</span>
-<span class="sd">        Assumes inputs in format BMHK</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">assert</span> <span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span>
 
-        <span class="k">if</span> <span class="n">seqstart_q</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">seqstart_q_py</span> <span class="o">=</span> <span class="n">seqstart_q</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">seqstart_q_py</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
-        <span class="k">if</span> <span class="n">seqstart_k</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">seqstart_k_py</span> <span class="o">=</span> <span class="n">seqstart_k</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">seqstart_k_py</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">key</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AttentionBwOpBase</span><span class="p">(</span><span class="n">AttentionOpBase</span><span class="p">):</span>
+    <span class="c1"># NOTE on tolerances: These are tested for `scales =&gt; (1/32)**0.5`</span>
+    <span class="c1"># In the BW pass, imprecisions accumulate in the Q@K.T recalculation</span>
+    <span class="c1"># These imprecisions are multiplied by the `scale` and then exponentiated</span>
+    <span class="c1"># So if the scale is too high, we get a lot of errors</span>
 
-        <span class="n">total_flop</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">q_start</span><span class="p">,</span> <span class="n">q_end</span><span class="p">,</span> <span class="n">k_start</span><span class="p">,</span> <span class="n">k_end</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
-            <span class="n">seqstart_q_py</span><span class="p">,</span> <span class="n">seqstart_q_py</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">seqstart_k_py</span><span class="p">,</span> <span class="n">seqstart_k_py</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
-        <span class="p">):</span>
-            <span class="n">num_q</span> <span class="o">=</span> <span class="n">q_end</span> <span class="o">-</span> <span class="n">q_start</span>
-            <span class="n">num_kv</span> <span class="o">=</span> <span class="n">k_end</span> <span class="o">-</span> <span class="n">k_start</span>
-            <span class="c1"># (M,K) @ (K,N) GEMM needs M*N*K*2 flop</span>
-            <span class="c1"># Q @ K.transpose</span>
-            <span class="n">total_flop</span> <span class="o">+=</span> <span class="n">num_q</span> <span class="o">*</span> <span class="n">num_kv</span> <span class="o">*</span> <span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span>
-            <span class="c1"># (ignore softmax)</span>
-            <span class="c1"># attn @ V</span>
-            <span class="n">total_flop</span> <span class="o">+=</span> <span class="n">num_q</span> <span class="o">*</span> <span class="n">key</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">num_kv</span> <span class="o">*</span> <span class="mi">2</span>
-        <span class="c1"># Multiply by num_heads and batches</span>
-        <span class="n">total_flop</span> <span class="o">=</span> <span class="n">total_flop</span> <span class="o">*</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">causal</span><span class="p">:</span>
-            <span class="n">total_flop</span> <span class="o">//=</span> <span class="mi">2</span>
-        <span class="k">return</span> <span class="n">total_flop</span>
-
-
-<span class="k">class</span> <span class="nc">AttentionBwOpBase</span><span class="p">(</span><span class="n">AttentionOpBase</span><span class="p">):</span>
     <span class="n">ERROR_ATOL</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">float</span><span class="p">:</span> <span class="mf">5e-4</span><span class="p">,</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">half</span><span class="p">:</span> <span class="mf">9e-2</span><span class="p">,</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">float</span><span class="p">:</span> <span class="mf">9e-4</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">half</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span>
     <span class="p">}</span>
     <span class="n">ERROR_RTOL</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
         <span class="n">torch</span><span class="o">.</span><span class="n">float</span><span class="p">:</span> <span class="mf">1e-4</span><span class="p">,</span>
@@ -507,9 +747,10 @@
         <span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
     <span class="p">}</span>
     <span class="n">SUPPORTS_ATTN_BIAS_GRAD</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">SUPPORTS_PARTIAL</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">not_supported_reasons</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">not_supported_reasons</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
         <span class="n">reasons</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">AttentionBwOpBase</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">not_supported_reasons</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">attn_bias</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span>
@@ -523,58 +764,8 @@
         <span class="k">return</span> <span class="n">reasons</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">inp</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">,</span> <span class="n">grad</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gradients</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">inp</span><span class="p">:</span> <span class="n">Inputs</span><span class="p">,</span> <span class="n">grad</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gradients</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">attn_operator_flop</span><span class="p">(</span>
-        <span class="bp">cls</span><span class="p">,</span>
-        <span class="n">query</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">key</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">causal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">seqstart_k</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">seqstart_q</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Computes total flops for the attention</span>
-<span class="sd">        Assumes inputs in format BMHK</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">assert</span> <span class="n">query</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span>
-
-        <span class="k">if</span> <span class="n">seqstart_q</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">seqstart_q_py</span> <span class="o">=</span> <span class="n">seqstart_q</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">seqstart_q_py</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
-        <span class="k">if</span> <span class="n">seqstart_k</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">seqstart_k_py</span> <span class="o">=</span> <span class="n">seqstart_k</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">seqstart_k_py</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">key</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
-
-        <span class="n">total_flop</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">q_start</span><span class="p">,</span> <span class="n">q_end</span><span class="p">,</span> <span class="n">k_start</span><span class="p">,</span> <span class="n">k_end</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
-            <span class="n">seqstart_q_py</span><span class="p">,</span> <span class="n">seqstart_q_py</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">seqstart_k_py</span><span class="p">,</span> <span class="n">seqstart_k_py</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
-        <span class="p">):</span>
-            <span class="n">num_q</span> <span class="o">=</span> <span class="n">q_end</span> <span class="o">-</span> <span class="n">q_start</span>
-            <span class="n">num_kv</span> <span class="o">=</span> <span class="n">k_end</span> <span class="o">-</span> <span class="n">k_start</span>
-            <span class="n">Kqk</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-            <span class="n">Kv</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-            <span class="c1"># (M,K) @ (K,N) GEMM needs M*N*K*2 flop</span>
-            <span class="c1"># att = Q @ K.transpose</span>
-            <span class="n">total_flop</span> <span class="o">+=</span> <span class="n">num_q</span> <span class="o">*</span> <span class="n">num_kv</span> <span class="o">*</span> <span class="n">Kqk</span> <span class="o">*</span> <span class="mi">2</span>
-            <span class="c1"># att @ dO</span>
-            <span class="n">total_flop</span> <span class="o">+=</span> <span class="n">num_kv</span> <span class="o">*</span> <span class="n">num_q</span> <span class="o">*</span> <span class="n">Kv</span> <span class="o">*</span> <span class="mi">2</span>
-            <span class="c1"># dov = dO @ V</span>
-            <span class="n">total_flop</span> <span class="o">+=</span> <span class="n">num_q</span> <span class="o">*</span> <span class="n">Kv</span> <span class="o">*</span> <span class="n">num_kv</span> <span class="o">*</span> <span class="mi">2</span>
-            <span class="c1"># dov @ K</span>
-            <span class="n">total_flop</span> <span class="o">+=</span> <span class="n">num_q</span> <span class="o">*</span> <span class="n">Kqk</span> <span class="o">*</span> <span class="n">num_kv</span> <span class="o">*</span> <span class="mi">2</span>
-            <span class="c1"># dov @ Q</span>
-            <span class="n">total_flop</span> <span class="o">+=</span> <span class="n">num_q</span> <span class="o">*</span> <span class="n">Kqk</span> <span class="o">*</span> <span class="n">num_kv</span> <span class="o">*</span> <span class="mi">2</span>
-        <span class="c1"># Multiply by num_heads and batches</span>
-        <span class="n">total_flop</span> <span class="o">=</span> <span class="n">total_flop</span> <span class="o">*</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">causal</span><span class="p">:</span>
-            <span class="n">total_flop</span> <span class="o">//=</span> <span class="mi">2</span>
-        <span class="k">return</span> <span class="n">total_flop</span>
 
 
 <span class="n">AttentionOp</span> <span class="o">=</span> <span class="n">Tuple</span><span class="p">[</span>
@@ -582,51 +773,15 @@
 <span class="p">]</span>
 
 
-<span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">AttentionOpDispatch</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Dispatcher to automatically select</span>
-<span class="sd">    the best operator to run memory-efficient attention.</span>
-
-<span class="sd">    :Deprecated:</span>
-
-<span class="sd">        This class is deprecated and will be removed in a later version</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">op</span><span class="p">:</span> <span class="n">AttentionOp</span>
-
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_arguments</span><span class="p">(</span>
-        <span class="bp">cls</span><span class="p">,</span>
-        <span class="n">query</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">key</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">value</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">attn_bias</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">AttentionBias</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">p</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;AttentionOpDispatch&quot;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Here for backward compatibility&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">.dispatch</span> <span class="kn">import</span> <span class="n">_dispatch_bw</span><span class="p">,</span> <span class="n">_dispatch_fw</span>
-
-        <span class="n">inp</span> <span class="o">=</span> <span class="n">Inputs</span><span class="p">(</span>
-            <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span>
-            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
-            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
-            <span class="n">attn_bias</span><span class="o">=</span><span class="n">attn_bias</span><span class="p">,</span>
-            <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">,</span>
-            <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">AttentionOpDispatch</span><span class="p">(</span><span class="n">op</span><span class="o">=</span><span class="p">(</span><span class="n">_dispatch_fw</span><span class="p">(</span><span class="n">inp</span><span class="p">),</span> <span class="n">_dispatch_bw</span><span class="p">(</span><span class="n">inp</span><span class="p">)))</span>
-
-
-<span class="k">def</span> <span class="nf">bmk2bmhk</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">bmk2bmhk</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
     <span class="k">if</span> <span class="n">tensor</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">tensor</span>
-    <span class="k">return</span> <span class="n">tensor</span><span class="o">.</span><span class="n">reshape</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">,</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]])</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span>
-        <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
-    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">tensor</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="n">num_heads</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">,</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
 
 
-<span class="k">def</span> <span class="nf">check_lastdim_alignment_stride1</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_lastdim_alignment_stride1</span><span class="p">(</span>
     <span class="n">reasons</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">alignment</span><span class="p">:</span> <span class="nb">int</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">%</span> <span class="n">alignment</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
