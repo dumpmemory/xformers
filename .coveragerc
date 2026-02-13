@@ -7,4 +7,3 @@ omit =
     xformers/triton/k_*
     stubs/*
     third_party/*
-    xformers/_flash_attn/*

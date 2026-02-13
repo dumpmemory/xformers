@@ -96,6 +96,15 @@ def _flash_attention3_incompatible_reason() -> Optional[str]:
             "int window_size_right=-1, float softcap=0., bool deterministic=False, int sm_margin=0) "
             "-> (Tensor(dq!), Tensor(dk!), Tensor(dv!), Tensor, Tensor, Tensor, Tensor, Tensor)"
         )
+    ) and not torch.ops.flash_attn_3.bwd.default._schema.is_backward_compatible_with(  # type: ignore
+        parse_schema(
+            "flash_attn_3::bwd(Tensor dout, Tensor q, Tensor k, Tensor v, Tensor out, Tensor softmax_lse, "
+            "Tensor(dq!)? dq=None, Tensor(dk!)? dk=None, Tensor(dv!)? dv=None, Tensor? cu_seqlens_q=None, "
+            "Tensor? cu_seqlens_k=None, Tensor? seqused_q=None, Tensor? seqused_k=None, int? max_seqlen_q=None, "
+            "int? max_seqlen_k=None, float? softmax_scale=None, bool is_causal=False, int window_size_left=-1, "
+            "int window_size_right=-1, float softcap=0., bool deterministic=False, int sm_margin=0) "
+            "-> (Tensor, Tensor, Tensor, Tensor, Tensor)"
+        )
     ):
         return "flash_attn_3::bwd operator is not compatible"
     return None
@@ -105,16 +114,7 @@ FLASH3_HAS_PAGED_ATTENTION = True
 FLASH3_HAS_FLOAT8 = False
 FLASH3_HAS_DETERMINISTIC_MODE = False
 _C_flashattention3 = None
-if importlib.util.find_spec("...flash_attn_3._C", package=__package__):
-    from ..._cpp_lib import _build_metadata
-    from ...flash_attn_3 import _C  # type: ignore[attr-defined]  # noqa: F401
-
-    if _build_metadata is not None:
-        FLASH_VERSION = _build_metadata.flash_version.lstrip("v")
-    FLASH3_HAS_DETERMINISTIC_MODE = True
-    _C_flashattention3 = torch.ops.flash_attn_3
-
-elif importlib.util.find_spec("flash_attn_3") and importlib.util.find_spec(
+if importlib.util.find_spec("flash_attn_3") and importlib.util.find_spec(
     "flash_attn_3._C"
 ):
     import flash_attn_3._C  # type: ignore[attr-defined]  # noqa: F401
@@ -471,7 +471,7 @@ if _C_flashattention3 is not None:
             assert cu_seqlens_k is None
 
         assert _C_flashattention3 is not None
-        dq, dk, dv, softmax_d, *rest = _C_flashattention3.bwd(
+        _C_flashattention3.bwd(
             dout,
             query,
             key,

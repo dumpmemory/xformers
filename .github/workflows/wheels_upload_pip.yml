@@ -90,12 +90,6 @@ jobs:
           echo $version > version.txt
           cat version.txt
 
-          (cd third_party/flash-attention && \
-            git describe --tags --always > version.txt && \
-            echo "Flash-Attention version" && \
-            cat version.txt
-          )
-
           BUILD_VERSION=$version $PY setup.py sdist -d sdist/
 
       - run: ls -R sdist/

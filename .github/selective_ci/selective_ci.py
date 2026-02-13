@@ -47,7 +47,6 @@ COMPONENTS = [
         dependencies=[
             "xformers/ops/fmha/*",
             "third_party/cutlass",
-            "third_party/flash-attention",
             "third_party/composable_kernel_tiled",
             "xformers/csrc/attention/*",
             "xformers/triton/*",
