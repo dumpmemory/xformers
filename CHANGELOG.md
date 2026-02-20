@@ -4,7 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.35] - 2026-??-??
+## [0.0.36] - 2026-??-??
+
+
+## [0.0.35] - 2026-02-20
+Pre-built binary wheels are available for PyTorch 2.10.0 (and later).
+
+### Improved
+- Supported free-threading Python.
+
+### Removed
+- Stopped bundling pre-built versions of Flash-Attention 3, and instead started relying on the wheels provided by the PyTorch indices.
 
 
 ## [0.0.34] - 2026-01-23
