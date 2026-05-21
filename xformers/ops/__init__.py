@@ -4,9 +4,11 @@
 # LICENSE file in the root directory of this source tree.
 
 
+import importlib.util
+
 import torch
 
-try:
+if _HAS_MSLK := importlib.util.find_spec("mslk") is not None:
     from .fmha import (
         AttentionBias,
         AttentionBias as AttentionMask,
@@ -23,16 +25,12 @@ try:
         MemoryEfficientAttentionFlashAttentionOp,
         MemoryEfficientAttentionSplitKCkOp,
     )
-except ImportError:
-    pass
 from .indexing import index_select_cat, scaled_index_add
 from .modpar_layers import ColumnParallelLinear, RowParallelLinear
 from .rmsnorm import RMSNorm
 
-try:
+if _HAS_MSLK:
     from .rope_padded import rope_padded
-except ImportError:
-    pass
 from .seqpar import sequence_parallel_leading_matmul, sequence_parallel_trailing_matmul
 from .sequence_parallel_fused_ops import (
     fused_allgather_and_anything,

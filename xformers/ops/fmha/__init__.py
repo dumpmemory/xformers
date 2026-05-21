@@ -5,9 +5,11 @@
 
 # The fmha implementation has moved to the mslk package. This package and its
 # submodules re-export mslk symbols to preserve the xformers.ops.fmha API.
+import importlib.util
+
 import torch
 
-try:
+if importlib.util.find_spec("mslk"):
     # flake8: noqa
     from mslk.attention.fmha import (
         _deserialize_bias,
@@ -101,6 +103,3 @@ try:
         "CUDA",
         _memory_efficient_attention_forward_torch_wrapper_with_bias,
     )
-
-except ModuleNotFoundError:
-    pass
