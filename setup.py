@@ -16,7 +16,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import setuptools
 import torch
@@ -25,13 +25,12 @@ from torch.utils.cpp_extension import (
     CppExtension,
     CUDA_HOME,
     CUDAExtension,
-    ROCM_HOME,
 )
 
 try:
     from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
 except ImportError:
-    _bdist_wheel = None
+    _bdist_wheel = object
 
 this_dir = os.path.dirname(__file__)
 
@@ -93,46 +92,11 @@ def get_cuda_version(cuda_dir) -> int:
     return bare_metal_major * 100 + bare_metal_minor
 
 
-def get_hip_version(rocm_dir) -> Optional[str]:
-    hipcc_bin = "hipcc" if rocm_dir is None else os.path.join(rocm_dir, "bin", "hipcc")
-    try:
-        raw_output = subprocess.check_output(
-            [hipcc_bin, "--version"], universal_newlines=True
-        )
-    except Exception as e:
-        print(
-            f"hip installation not found: {e} ROCM_PATH={os.environ.get('ROCM_PATH')}"
-        )
-        return None
-    for line in raw_output.split("\n"):
-        if "HIP version" in line:
-            return line.split()[-1]
-    return None
-
-
-def rename_cpp_cu(cpp_files):
-    for entry in cpp_files:
-        shutil.copy(entry, os.path.splitext(entry)[0] + ".cu")
-
-
 def get_extensions():
     extensions_dir = os.path.join("xformers", "csrc")
 
     sources = glob.glob(os.path.join(extensions_dir, "**", "*.cpp"), recursive=True)
     source_cuda = glob.glob(os.path.join(extensions_dir, "**", "*.cu"), recursive=True)
-
-    source_hip = glob.glob(
-        os.path.join(extensions_dir, "attention", "hip_*", "**", "*.cpp"),
-        recursive=True,
-    )
-
-    source_hip_generated = glob.glob(
-        os.path.join(extensions_dir, "attention", "hip_*", "**", "*.cu"),
-        recursive=True,
-    )
-    # avoid the temporary .cu files generated under xformers/csrc/attention/hip_fmha
-    source_cuda = list(set(source_cuda) - set(source_hip_generated))
-    sources = list(set(sources) - set(source_hip))
 
     if "XFORMERS_SELECTIVE_BUILD" in os.environ:
         pattern = os.environ["XFORMERS_SELECTIVE_BUILD"]
@@ -168,7 +132,11 @@ def get_extensions():
     include_dirs = [extensions_dir]
     ext_modules = []
     cuda_version = None
-    hip_version = None
+    stable_args = [
+        "-DTORCH_STABLE_ONLY",
+        "-DTORCH_TARGET_VERSION=0x020a000000000000",
+    ]
+    extra_compile_args["cxx"].extend(stable_args)
 
     if (
         (
@@ -220,12 +188,6 @@ def get_extensions():
             ]
         extra_compile_args["nvcc"] = nvcc_flags
 
-        # For now we enforce the PyTorch stable ABI only for CUDA builds (not HIP).
-        stable_args = [
-            "-DTORCH_STABLE_ONLY",
-            "-DTORCH_TARGET_VERSION=0x020a000000000000",
-        ]
-        extra_compile_args["cxx"].extend(stable_args)
         extra_compile_args["nvcc"].extend(stable_args + ["-DUSE_CUDA"])
 
         if (
@@ -237,62 +199,6 @@ def get_extensions():
                 "--ptxas-options=-O2",
                 "--ptxas-options=-allow-expensive-optimizations=true",
             ]
-    elif (
-        torch.version.hip
-        and os.getenv("XFORMERS_CK_FLASH_ATTN", "1") == "1"
-        and (torch.cuda.is_available() or os.getenv("HIP_ARCHITECTURES", "") != "")
-    ):
-        rename_cpp_cu(source_hip)
-        hip_version = get_hip_version(ROCM_HOME)
-
-        source_hip_cu = []
-        for ff in source_hip:
-            source_hip_cu += [ff.replace(".cpp", ".cu")]
-
-        extension = CUDAExtension
-        sources += source_hip_cu
-        include_dirs += [
-            Path(this_dir) / "xformers" / "csrc" / "attention" / "hip_fmha",
-            Path(this_dir) / "xformers" / "csrc" / "attention" / "hip_decoder",
-        ]
-
-        include_dirs += [
-            Path(this_dir) / "third_party" / "composable_kernel_tiled" / "include"
-        ]
-
-        cc_flag = ["-DBUILD_PYTHON_PACKAGE"]
-        use_rtn_bf16_convert = os.getenv("ENABLE_HIP_FMHA_RTN_BF16_CONVERT", "0")
-        if use_rtn_bf16_convert == "1":
-            cc_flag += ["-DCK_TILE_FLOAT_TO_BFLOAT16_DEFAULT=3"]
-
-        arch_list = os.getenv("HIP_ARCHITECTURES", "native").split()
-
-        offload_compress_flag = []
-        if hip_version >= "6.2.":
-            offload_compress_flag = ["--offload-compress"]
-
-        extra_compile_args["nvcc"] = [
-            "-O3",
-            "-std=c++17",
-            *[f"--offload-arch={arch}" for arch in arch_list],
-            *offload_compress_flag,
-            "-U__CUDA_NO_HALF_OPERATORS__",
-            "-U__CUDA_NO_HALF_CONVERSIONS__",
-            "-DCK_TILE_FMHA_FWD_FAST_EXP2=1",
-            "-fgpu-flush-denormals-to-zero",
-            "-Werror",
-            "-Wc++11-narrowing",
-            "-Woverloaded-virtual",
-            "-mllvm",
-            "-enable-post-misched=0",
-            "-mllvm",
-            "-amdgpu-early-inline-all=true",
-            "-mllvm",
-            "-amdgpu-function-calls=false",
-            "-mllvm",
-            "-greedy-reverse-local-assignment=1",
-        ] + cc_flag
-
     ext_modules.append(
         extension(
             "xformers._C",
@@ -306,7 +212,7 @@ def get_extensions():
     return ext_modules, {
         "version": {
             "cuda": cuda_version,
-            "hip": hip_version,
+            "hip": None,
             "torch": torch.__version__,
             "python": platform.python_version(),
         },
@@ -340,7 +246,7 @@ class clean(distutils.command.clean.clean):  # type: ignore
         distutils.command.clean.clean.run(self)
 
 
-class bdist_wheel_abi_none(_bdist_wheel if _bdist_wheel else object):  # type: ignore[misc]
+class bdist_wheel_abi_none(_bdist_wheel):
     """
     Custom wheel builder that tags wheels as ABI-independent despite containing compiled code.
     The compiled extensions are plain shared libraries (.so/.dll) that use only PyTorch's
@@ -349,7 +255,7 @@ class bdist_wheel_abi_none(_bdist_wheel if _bdist_wheel else object):  # type: i
     """
 
     def get_tag(self):
-        if _bdist_wheel is None:
+        if _bdist_wheel is object:
             raise RuntimeError("wheel package is required to build wheels")
 
         # Get the default tags from parent class

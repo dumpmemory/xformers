@@ -57,5 +57,5 @@ jobs:
       - name: PyTorch stable API includes
         if: success() || failure()
         run: |
-          bad_files=$(git grep --extended-regex -e "#\s*include\s*<.*(torch|ATen|c10)" --and --not -e "#\s*include\s*<torch/(headeronly|csrc/stable)/" --files-with-matches -- ':(exclude)xformers/csrc/attention/hip_*' || true)
+          bad_files=$(git grep --extended-regex -e "#\s*include\s*<.*(torch|ATen|c10)" --and --not -e "#\s*include\s*<torch/(headeronly|csrc/stable)/" --files-with-matches || true)
           if [[ $bad_files != "" ]]; then echo "These files contain non-stable PyTorch includes:"; echo $bad_files; exit 1; fi

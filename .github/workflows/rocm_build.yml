@@ -11,8 +11,6 @@ on:
       - ".github/workflows/wheels_build.yml"
       - "setup.py"
       - "requirements*.txt"
-      - "xformers/csrc/attention/hip_fmha/**"
-      - "third_party/composable_kernel_tiled/**"
   workflow_dispatch:
 
 jobs:
